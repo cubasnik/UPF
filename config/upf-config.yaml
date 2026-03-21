@@ -1,0 +1,14 @@
+node_id: upf-1
+n3_bind: 0.0.0.0:2152
+n4_bind: 0.0.0.0:8805
+n6_bind: 0.0.0.0:30000
+n4_remote_host: 127.0.0.1
+n4_remote_port: 8805
+n4_timeout_ms: 300
+sbi_host: 127.0.0.1
+sbi_port: 8080
+sbi_path: /nupf-event-exposure/v1/events
+sbi_timeout_ms: 500
+enable_n9: true
+strict_pfcp: true
+heartbeat_interval_ms: 1000

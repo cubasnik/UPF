@@ -37,5 +37,11 @@
 *.out
 *.app
 
+# Build directories
+build/
+
+# Temporary local references
+.smf_reference/
+
 # debug information files
 *.dwo
