@@ -1,49 +1,31 @@
 {
-  "version": 3,
+  "version": 6,
   "configurePresets": [
     {
       "name": "default",
-      "displayName": "Default",
+      "displayName": "Default Config",
+      "description": "Default build configuration",
       "generator": "Ninja",
-      "binaryDir": "${sourceDir}/build/default",
+      "binaryDir": "${sourceDir}/build",
       "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Debug",
-        "UPF_BUILD_TESTS": "ON"
-      }
-    },
-    {
-      "name": "strict",
-      "displayName": "Strict",
-      "generator": "Ninja",
-      "binaryDir": "${sourceDir}/build/strict",
-      "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "RelWithDebInfo",
-        "UPF_BUILD_TESTS": "ON",
-        "CMAKE_CXX_FLAGS": "-Wall -Wextra -Wpedantic"
+        "CMAKE_BUILD_TYPE": "Debug"
       }
     }
   ],
   "buildPresets": [
     {
       "name": "default",
+      "displayName": "Default Build",
+      "description": "Build using the default configure preset",
       "configurePreset": "default"
-    },
-    {
-      "name": "strict",
-      "configurePreset": "strict"
     }
   ],
   "testPresets": [
     {
       "name": "default",
+      "displayName": "Default Test",
+      "description": "Run tests from the default build directory",
       "configurePreset": "default",
-      "output": {
-        "outputOnFailure": true
-      }
-    },
-    {
-      "name": "strict",
-      "configurePreset": "strict",
       "output": {
         "outputOnFailure": true
       }

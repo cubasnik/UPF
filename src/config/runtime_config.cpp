@@ -59,6 +59,18 @@ void apply_key_value(RuntimeConfig& cfg, const std::string& raw_key, const std::
         cfg.n4_bind = value;
     } else if (key == "n6_bind") {
         cfg.n6_bind = value;
+    } else if (key == "n6_remote_host") {
+        cfg.n6_remote_host = value;
+    } else if (key == "n6_remote_port") {
+        cfg.n6_remote_port = parse_int(value, cfg.n6_remote_port);
+    } else if (key == "n6_default_protocol") {
+        cfg.n6_default_protocol = value;
+    } else if (key == "n6_downlink_wait_timeout_ms") {
+        cfg.n6_downlink_wait_timeout_ms = parse_int(value, cfg.n6_downlink_wait_timeout_ms);
+    } else if (key == "n6_buffer_capacity") {
+        cfg.n6_buffer_capacity = static_cast<std::size_t>(std::max(1, parse_int(value, static_cast<int>(cfg.n6_buffer_capacity))));
+    } else if (key == "n6_buffer_overflow_policy") {
+        cfg.n6_buffer_overflow_policy = value;
     } else if (key == "enable_n9") {
         cfg.enable_n9 = parse_bool(value, cfg.enable_n9);
     } else if (key == "strict_pfcp") {

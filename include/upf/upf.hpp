@@ -26,6 +26,7 @@ public:
 
     std::optional<SessionContext> find_session(const std::string& imsi, const std::string& pdu_session_id) const override;
     std::vector<SessionContext> list_sessions() const override;
+    std::optional<N6SessionBufferSnapshot> inspect_n6_session(const std::string& imsi, const std::string& pdu_session_id) const override;
 
     bool notify_sbi(const std::string& service_name, const std::string& payload) override;
     UpfStatusSnapshot status() const override;
