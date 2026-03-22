@@ -213,54 +213,54 @@ int main(int argc, char** argv) {
     {
         std::ofstream commands(command_file, std::ios::binary);
         commands << "help\n";
-        commands << "show demo-presets\n";
-        commands << "show demo-presets json\n";
-        commands << "show demo-matrix\n";
-        commands << "show demo-matrix json\n";
-        commands << "show demo-matrix " << kCustomImsi << ' ' << kCustomPdu << " 1440\n";
-        commands << "show demo-matrix " << kCustomImsi << ' ' << kCustomPdu << " 1440 json\n";
-        commands << "show demo-matrix " << kCustomImsi << ' ' << kCustomPdu << " 1440 tool-cmd\n";
-        commands << "show demo-matrix " << kCustomImsi << ' ' << kCustomPdu << " 1440 tool-cmd json\n";
-        commands << "show demo-matrix " << kCustomImsi << ' ' << kCustomPdu << " 1440 preset=" << kCustomPreset << "\n";
-        commands << "show demo-matrix " << kCustomImsi << ' ' << kCustomPdu << " 1440 preset=" << kCustomPreset << " tool-cmd json\n";
-        commands << "show demo-matrix " << kCustomImsi << ' ' << kCustomPdu << " 1440 compare=ims-ipv4,ims-ipv6\n";
-        commands << "show demo-matrix " << kCustomImsi << ' ' << kCustomPdu << " 1440 compare=ims-ipv4,ims-ipv6 json\n";
-        commands << "show demo-matrix " << kCustomImsi << ' ' << kCustomPdu << " 999999999999999999999999999999 compare=ims-ipv4,ims-ipv6\n";
-        commands << "show demo-matrix 1440 " << kCustomImsi << ' ' << kCustomPdu << "\n";
-        commands << "show demo-compare " << kCustomImsi << ' ' << kCustomPdu << " 1440 compare=ims-ipv4,ims-ipv6\n";
-        commands << "show demo-compare " << kCustomImsi << ' ' << kCustomPdu << " 1440 compare=ims-ipv4,ims-ipv6 tool-cmd json\n";
-        commands << "show demo-compare 1440 " << kCustomImsi << ' ' << kCustomPdu << " compare=ims-ipv4,ims-ipv6\n";
-        commands << "show demo-compare abc " << kCustomPdu << " 1440 compare=ims-ipv4,ims-ipv6\n";
-        commands << "demo validate 1440 " << kCustomImsi << ' ' << kCustomPdu << " compare=ims-ipv4,ims-ipv6\n";
-        commands << "demo validate 1440 " << kCustomImsi << ' ' << kCustomPdu << " compare=ims-ipv4,ims-ipv6 json\n";
-        commands << "demo validate tool-cmd 1440 " << kCustomImsi << ' ' << kCustomPdu << " compare=ims-ipv4,ims-ipv6 json\n";
-        commands << "demo validate json 1337 " << kCustomImsi << ' ' << kCustomPdu << " preset=" << kCustomPreset << "\n";
-        commands << "demo validate 1338 " << kCustomImsi << ' ' << kCustomPdu << " preset=" << kCustomPreset << " tool-cmd\n";
-        commands << "demo validate 999999999999999999999999999999 " << kCustomImsi << ' ' << kCustomPdu << " compare=ims-ipv4,ims-ipv6\n";
-        commands << "demo compare 1600 " << kCustomImsi << ' ' << kCustomPdu << " compare=internet-ipv4,enterprise-ethernet json\n";
-        commands << "demo compare json 1666 " << kCustomImsi << ' ' << kCustomPdu << " compare=ims-ipv4,ims-ipv6\n";
-        commands << "demo compare 1600 " << kCustomImsi << ' ' << kCustomPdu << " preset=ims-ipv6 compare=internet-ipv4,enterprise-ethernet\n";
-        commands << "demo compare 1600 " << kCustomImsi << ' ' << kCustomPdu << " compare=ims-ipv6\n";
-        commands << "demo compare 1667 " << kCustomImsi << ' ' << kCustomPdu << " tool-cmd compare=ims-ipv4,ims-ipv6 json\n";
-        commands << "demo validate 1440 " << kCustomImsi << ' ' << kCustomPdu << " preset=ims-ipv6 preset=ims-ipv4\n";
-        commands << "demo validate 1440 " << kCustomImsi << ' ' << kCustomPdu << " dnn=ims profile=ipv6 profile=ipv4\n";
-        commands << "demo compare 1600 " << kCustomImsi << ' ' << kCustomPdu << " compare=ims-ipv4,ims-ipv6 compare=internet-ipv4,enterprise-ethernet\n";
-        commands << "show demo-matrix " << kCustomImsi << ' ' << kCustomPdu << " 1440 preset=ims-ipv6 preset=ims-ipv4\n";
-        commands << "demo validate 1440 " << kCustomImsi << ' ' << kCustomPdu
-                 << " preset=" << kCustomPreset << "\n";
-        commands << "demo validate 1440 " << kCustomImsi << ' ' << kCustomPdu
-                 << " preset=" << kCustomPreset << " json\n";
-        commands << "demo validate tool-cmd 1440 " << kCustomImsi << ' ' << kCustomPdu
-                 << " preset=" << kCustomPreset << "\n";
-        commands << "demo validate tool-cmd 1440 " << kCustomImsi << ' ' << kCustomPdu
-                 << " preset=" << kCustomPreset << " json\n";
-        commands << "demo downlink 1440 " << kCustomImsi << " 999\n";
-        commands << "demo downlink-tool 1440 abc " << kCustomPdu << "\n";
-        commands << "demo downlink-tool 1440 " << kCustomImsi << " 999\n";
-        commands << "demo full-tool 1440 abc " << kCustomPdu << " preset=" << kCustomPreset << "\n";
-        commands << "demo full-tool 1440 " << kCustomImsi << " 999 preset=" << kCustomPreset << "\n";
-        commands << "demo full-tool 1440 " << kCustomImsi << ' ' << kCustomPdu
-                 << " preset=" << kCustomPreset << "\n";
+        commands << "show session-presets\n";
+        commands << "show session-presets json\n";
+        commands << "show session-matrix\n";
+        commands << "show session-matrix json\n";
+        commands << "show session-matrix " << kCustomImsi << ' ' << kCustomPdu << " 1440\n";
+        commands << "show session-matrix " << kCustomImsi << ' ' << kCustomPdu << " 1440 json\n";
+        commands << "show session-matrix " << kCustomImsi << ' ' << kCustomPdu << " 1440 tool-cmd\n";
+        commands << "show session-matrix " << kCustomImsi << ' ' << kCustomPdu << " 1440 tool-cmd json\n";
+        commands << "show session-matrix " << kCustomImsi << ' ' << kCustomPdu << " 1440 preset=" << kCustomPreset << "\n";
+        commands << "show session-matrix " << kCustomImsi << ' ' << kCustomPdu << " 1440 preset=" << kCustomPreset << " tool-cmd json\n";
+        commands << "show session-matrix " << kCustomImsi << ' ' << kCustomPdu << " 1440 compare=ims-ipv4,ims-ipv6\n";
+        commands << "show session-matrix " << kCustomImsi << ' ' << kCustomPdu << " 1440 compare=ims-ipv4,ims-ipv6 json\n";
+        commands << "show session-matrix " << kCustomImsi << ' ' << kCustomPdu << " 999999999999999999999999999999 compare=ims-ipv4,ims-ipv6\n";
+        commands << "show session-matrix 1440 " << kCustomImsi << ' ' << kCustomPdu << "\n";
+        commands << "show session-compare " << kCustomImsi << ' ' << kCustomPdu << " 1440 compare=ims-ipv4,ims-ipv6\n";
+        commands << "show session-compare " << kCustomImsi << ' ' << kCustomPdu << " 1440 compare=ims-ipv4,ims-ipv6 tool-cmd json\n";
+        commands << "show session-compare 1440 " << kCustomImsi << ' ' << kCustomPdu << " compare=ims-ipv4,ims-ipv6\n";
+        commands << "show session-compare abc " << kCustomPdu << " 1440 compare=ims-ipv4,ims-ipv6\n";
+        commands << "session validate 1440 " << kCustomImsi << ' ' << kCustomPdu << " compare=ims-ipv4,ims-ipv6\n";
+        commands << "session validate 1440 " << kCustomImsi << ' ' << kCustomPdu << " compare=ims-ipv4,ims-ipv6 json\n";
+        commands << "session validate tool-cmd 1440 " << kCustomImsi << ' ' << kCustomPdu << " compare=ims-ipv4,ims-ipv6 json\n";
+        commands << "session validate json 1337 " << kCustomImsi << ' ' << kCustomPdu << " preset=" << kCustomPreset << "\n";
+        commands << "session validate 1338 " << kCustomImsi << ' ' << kCustomPdu << " preset=" << kCustomPreset << " tool-cmd\n";
+        commands << "session validate 999999999999999999999999999999 " << kCustomImsi << ' ' << kCustomPdu << " compare=ims-ipv4,ims-ipv6\n";
+        commands << "session compare 1600 " << kCustomImsi << ' ' << kCustomPdu << " compare=internet-ipv4,enterprise-ethernet json\n";
+        commands << "session compare json 1666 " << kCustomImsi << ' ' << kCustomPdu << " compare=ims-ipv4,ims-ipv6\n";
+        commands << "session compare 1600 " << kCustomImsi << ' ' << kCustomPdu << " preset=ims-ipv6 compare=internet-ipv4,enterprise-ethernet\n";
+        commands << "session compare 1600 " << kCustomImsi << ' ' << kCustomPdu << " compare=ims-ipv6\n";
+        commands << "session compare 1667 " << kCustomImsi << ' ' << kCustomPdu << " tool-cmd compare=ims-ipv4,ims-ipv6 json\n";
+        commands << "session validate 1440 " << kCustomImsi << ' ' << kCustomPdu << " preset=ims-ipv6 preset=ims-ipv4\n";
+        commands << "session validate 1440 " << kCustomImsi << ' ' << kCustomPdu << " dnn=ims profile=ipv6 profile=ipv4\n";
+        commands << "session compare 1600 " << kCustomImsi << ' ' << kCustomPdu << " compare=ims-ipv4,ims-ipv6 compare=internet-ipv4,enterprise-ethernet\n";
+        commands << "show session-matrix " << kCustomImsi << ' ' << kCustomPdu << " 1440 preset=ims-ipv6 preset=ims-ipv4\n";
+        commands << "session validate 1440 " << kCustomImsi << ' ' << kCustomPdu
+             << " preset=" << kCustomPreset << "\n";
+        commands << "session validate 1440 " << kCustomImsi << ' ' << kCustomPdu
+             << " preset=" << kCustomPreset << " json\n";
+        commands << "session validate tool-cmd 1440 " << kCustomImsi << ' ' << kCustomPdu
+             << " preset=" << kCustomPreset << "\n";
+        commands << "session validate tool-cmd 1440 " << kCustomImsi << ' ' << kCustomPdu
+             << " preset=" << kCustomPreset << " json\n";
+        commands << "session downlink 1440 " << kCustomImsi << " 999\n";
+        commands << "session downlink-tool 1440 abc " << kCustomPdu << "\n";
+        commands << "session downlink-tool 1440 " << kCustomImsi << " 999\n";
+        commands << "session full-tool 1440 abc " << kCustomPdu << " preset=" << kCustomPreset << "\n";
+        commands << "session full-tool 1440 " << kCustomImsi << " 999 preset=" << kCustomPreset << "\n";
+        commands << "session full-tool 1440 " << kCustomImsi << ' ' << kCustomPdu
+             << " preset=" << kCustomPreset << "\n";
         commands << "quit\n";
     }
 
@@ -281,41 +281,41 @@ int main(int argc, char** argv) {
     const std::string upf_output = read_all(upf_log);
     if (!contains(upf_output, "UPF interactive CLI") ||
         !contains(upf_output, "Compare Examples:") ||
-        !contains(upf_output, "demo compare 1440 250200123450002 22 compare=ims-ipv4,ims-ipv6") ||
-        !contains(upf_output, "show demo-compare 250200123450002 22 1440 compare=ims-ipv4,ims-ipv6") ||
-        !contains(upf_output, "demo-presets") ||
+        !contains(upf_output, "session compare 1440 250200123450002 22 compare=ims-ipv4,ims-ipv6") ||
+        !contains(upf_output, "show session-compare 250200123450002 22 1440 compare=ims-ipv4,ims-ipv6") ||
+        !contains(upf_output, "session-presets") ||
         !contains(upf_output, "ims-ipv6 -> dnn=ims profile=ipv6") ||
-        !contains(upf_output, "\"schema\":\"upf.demo-presets.v1\"") ||
+        !contains(upf_output, "\"schema\":\"upf.session-presets.v1\"") ||
         !contains(upf_output, "\"name\":\"ims-ipv6\"") ||
         !contains(upf_output, "\"dnn\":\"ims\"") ||
         !contains(upf_output, "\"profile\":\"ipv6\"") ||
-        !contains(upf_output, "demo-matrix imsi=250200123456789 pdu=10 bytes=1200") ||
+        !contains(upf_output, "session-matrix imsi=250200123456789 pdu=10 bytes=1200") ||
         !contains(upf_output, "preset=enterprise-ethernet bytes=1200 imsi=250200123456789 pdu=10 dnn=enterprise profile=ethernet") ||
-        !contains(upf_output, "\"schema\":\"upf.demo-matrix.v1\"") ||
+        !contains(upf_output, "\"schema\":\"upf.session-matrix.v1\"") ||
         !contains(upf_output, "\"preset\":\"enterprise-ethernet\"") ||
-        !contains(upf_output, std::string("demo-matrix imsi=") + kCustomImsi + " pdu=" + kCustomPdu + " bytes=1440") ||
+        !contains(upf_output, std::string("session-matrix imsi=") + kCustomImsi + " pdu=" + kCustomPdu + " bytes=1440") ||
         !contains(upf_output, std::string("preset=ims-ipv6 bytes=1440 imsi=") + kCustomImsi + " pdu=" + kCustomPdu + " dnn=ims profile=ipv6") ||
         !contains(upf_output, std::string("\"imsi\":\"") + kCustomImsi + '"') ||
         !contains(upf_output, std::string("\"pdu\":\"") + kCustomPdu + '"') ||
-        !contains(upf_output, std::string("demo-matrix imsi=") + kCustomImsi + " pdu=" + kCustomPdu + " bytes=1440 tool-cmd") ||
+        !contains(upf_output, std::string("session-matrix imsi=") + kCustomImsi + " pdu=" + kCustomPdu + " bytes=1440 tool-cmd") ||
         !contains(upf_output, std::string("preset=ims-ipv6 bytes=1440 imsi=") + kCustomImsi + " pdu=" + kCustomPdu + " dnn=ims profile=ipv6 teid=") ||
         !contains(upf_output, std::string("preset=ims-ipv6 bytes=1440 imsi=") + kCustomImsi + " pdu=" + kCustomPdu + " dnn=ims profile=ipv6") ||
         !contains(upf_output, "tool_path=") ||
         !contains(upf_output, "command=cmd /c") ||
-        !contains(upf_output, "\"schema\":\"upf.demo-matrix-tool-command.v1\"") ||
+        !contains(upf_output, "\"schema\":\"upf.session-matrix-tool-command.v1\"") ||
         !contains(upf_output, "\"tool_path\":") ||
         !contains(upf_output, "\"command\":") ||
-        !contains(upf_output, std::string("demo-matrix imsi=") + kCustomImsi + " pdu=" + kCustomPdu + " bytes=1440 preset=" + kCustomPreset) ||
+        !contains(upf_output, std::string("session-matrix imsi=") + kCustomImsi + " pdu=" + kCustomPdu + " bytes=1440 preset=" + kCustomPreset) ||
         !contains(upf_output, std::string("\"preset\":\"") + kCustomPreset + '"') ||
-        !contains(upf_output, std::string("demo-matrix imsi=") + kCustomImsi + " pdu=" + kCustomPdu + " bytes=1440 compare=ims-ipv4,ims-ipv6") ||
+        !contains(upf_output, std::string("session-matrix imsi=") + kCustomImsi + " pdu=" + kCustomPdu + " bytes=1440 compare=ims-ipv4,ims-ipv6") ||
         !contains(upf_output, "preset=ims-ipv4 bytes=1440") ||
         !contains(upf_output, "preset=ims-ipv6 bytes=1440") ||
         !contains(upf_output, "\"compare\":[\"ims-ipv4\",\"ims-ipv6\"]") ||
-        !contains(upf_output, std::string("demo-compare imsi=") + kCustomImsi + " pdu=" + kCustomPdu + " bytes=1440 compare=ims-ipv4,ims-ipv6") ||
-        !contains(upf_output, "\"schema\":\"upf.demo-compare-tool-command.v1\"") ||
-        !contains(upf_output, std::string("demo-compare imsi=") + kCustomImsi + " pdu=" + kCustomPdu + " bytes=1440 compare=ims-ipv4,ims-ipv6") ||
-        !contains(upf_output, "\"schema\":\"upf.demo-compare.v1\"") ||
-        !contains(upf_output, "\"schema\":\"upf.demo-compare-tool-command.v1\"") ||
+        !contains(upf_output, std::string("session-compare imsi=") + kCustomImsi + " pdu=" + kCustomPdu + " bytes=1440 compare=ims-ipv4,ims-ipv6") ||
+        !contains(upf_output, "\"schema\":\"upf.session-compare-tool-command.v1\"") ||
+        !contains(upf_output, std::string("session-compare imsi=") + kCustomImsi + " pdu=" + kCustomPdu + " bytes=1440 compare=ims-ipv4,ims-ipv6") ||
+        !contains(upf_output, "\"schema\":\"upf.session-compare.v1\"") ||
+        !contains(upf_output, "\"schema\":\"upf.session-compare-tool-command.v1\"") ||
         !contains(upf_output, std::string("\"bytes\":1337,\"imsi\":\"") + kCustomImsi + "\",\"pdu\":\"" + kCustomPdu + "\"") ||
         !contains(upf_output, std::string("bytes=1338 imsi=") + kCustomImsi + " pdu=" + kCustomPdu + " dnn=ims profile=ipv6") ||
         !contains(upf_output, std::string("\"bytes\":1666,\"compare\":[\"ims-ipv4\",\"ims-ipv6\"]")) ||
@@ -324,28 +324,28 @@ int main(int argc, char** argv) {
         !contains(upf_output, "ERR: bytes must be an unsigned integer") ||
         !contains(upf_output, "ERR: imsi must contain only digits") ||
         !contains(upf_output, "ERR: pdu must be an unsigned integer in range 1..255") ||
-        !contains(upf_output, "ERR: duplicate demo option: preset") ||
-        !contains(upf_output, "ERR: duplicate demo option: profile") ||
+        !contains(upf_output, "ERR: duplicate session option: preset") ||
+        !contains(upf_output, "ERR: duplicate session option: profile") ||
         !contains(upf_output, "ERR: duplicate compare option") ||
         !contains(upf_output, "ERR: duplicate preset option") ||
         !contains(upf_output, "ERR: compare cannot be combined with preset, dnn, or profile") ||
         !contains(upf_output, "ERR: compare must be preset1,preset2") ||
         !contains(upf_output, std::string("bytes=1440 imsi=") + kCustomImsi + " pdu=" + kCustomPdu + " dnn=ims profile=ipv6") ||
-        !contains(upf_output, std::string("request_id=demo-") + kCustomImsi + '-' + kCustomPdu) ||
-        !contains(upf_output, "\"schema\":\"upf.demo-target.v1\"") ||
+        !contains(upf_output, std::string("request_id=session-") + kCustomImsi + '-' + kCustomPdu) ||
+        !contains(upf_output, "\"schema\":\"upf.session-target.v1\"") ||
         !contains(upf_output, "\"bytes\":1440") ||
         !contains(upf_output, std::string("\"imsi\":\"") + kCustomImsi + '"') ||
         !contains(upf_output, std::string("\"pdu\":\"") + kCustomPdu + '"') ||
         !contains(upf_output, "\"dnn\":\"ims\"") ||
         !contains(upf_output, "\"profile\":\"ipv6\"") ||
-        !contains(upf_output, std::string("\"request_id\":\"demo-") + kCustomImsi + '-' + kCustomPdu + '"') ||
+        !contains(upf_output, std::string("\"request_id\":\"session-") + kCustomImsi + '-' + kCustomPdu + '"') ||
         !contains(upf_output, "tool_path=") ||
         !contains(upf_output, "config_path=") ||
         !contains(upf_output, "command=") ||
         !contains(upf_output, "n6_traffic_tool") ||
         !contains(upf_output, "--bytes 1440") ||
         !contains(upf_output, "--count 5 --interval-ms 120") ||
-        !contains(upf_output, "\"schema\":\"upf.demo-tool-command.v1\"") ||
+        !contains(upf_output, "\"schema\":\"upf.session-tool-command.v1\"") ||
         !contains(upf_output, "\"tool_path\":") ||
         !contains(upf_output, "\"config_path\":") ||
         !contains(upf_output, "\"command\":") ||

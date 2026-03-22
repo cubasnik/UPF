@@ -9,7 +9,7 @@ n6_downlink_wait_timeout_ms: 500
 n6_buffer_capacity: 16
 n6_buffer_overflow_policy: drop_oldest
 n4_remote_host: 127.0.0.1
-n4_remote_port: 8805
+n4_remote_port: 8806
 n4_timeout_ms: 300
 sbi_host: 127.0.0.1
 sbi_port: 8080

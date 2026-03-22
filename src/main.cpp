@@ -21,39 +21,39 @@
 
 namespace {
 
-constexpr const char* kDefaultDemoImsi = "250200123456789";
-constexpr const char* kDefaultDemoPduSessionId = "10";
+constexpr const char* kDefaultSessionImsi = "250200123456789";
+constexpr const char* kDefaultSessionPduSessionId = "10";
 
-struct DemoSessionTarget {
-    std::string imsi {kDefaultDemoImsi};
-    std::string pdu_session_id {kDefaultDemoPduSessionId};
+struct SessionTarget {
+    std::string imsi {kDefaultSessionImsi};
+    std::string pdu_session_id {kDefaultSessionPduSessionId};
     std::string dnn {"internet"};
     std::string profile;
 };
 
-struct DemoBytesTarget {
+struct SessionBytesTarget {
     std::size_t bytes {0};
-    DemoSessionTarget target {};
+    SessionTarget target {};
 };
 
-struct DemoToolCommandPreview {
+struct ToolCommandPreview {
     std::filesystem::path tool_path {};
     std::optional<std::filesystem::path> config_path {};
     std::string command;
 };
 
-struct DemoMatrixQuery {
-    DemoBytesTarget target {};
+struct MatrixQuery {
+    SessionBytesTarget target {};
     std::optional<std::string> preset_filter {};
     std::vector<std::string> compare_presets {};
 };
 
-struct DemoCompareQuery {
-    DemoBytesTarget target {};
+struct CompareQuery {
+    SessionBytesTarget target {};
     std::vector<std::string> compare_presets {};
 };
 
-struct DemoOptionFlags {
+struct SessionOptionFlags {
     bool seen_dnn {false};
     bool seen_preset {false};
     bool seen_profile {false};
@@ -61,14 +61,14 @@ struct DemoOptionFlags {
 
 std::string trim(std::string value);
 std::string to_lower(std::string value);
-const std::vector<std::pair<std::string, std::string>>& demo_preset_mappings();
-std::optional<std::pair<std::string, std::string>> parse_demo_preset(const std::string& value);
-std::optional<DemoBytesTarget> parse_demo_bytes_target(const std::vector<std::string>& args,
+const std::vector<std::pair<std::string, std::string>>& session_preset_mappings();
+std::optional<std::pair<std::string, std::string>> parse_session_preset(const std::string& value);
+std::optional<SessionBytesTarget> parse_session_bytes_target(const std::vector<std::string>& args,
                                                        std::size_t default_bytes,
                                                        bool prefer_bytes_suffix,
                                                        std::string* error);
 
-std::optional<std::vector<std::string>> parse_demo_preset_compare(const std::string& value) {
+std::optional<std::vector<std::string>> parse_session_preset_compare(const std::string& value) {
     const std::size_t separator = value.find(',');
     if (separator == std::string::npos || separator == 0 || separator + 1 >= value.size()) {
         return std::nullopt;
@@ -79,13 +79,13 @@ std::optional<std::vector<std::string>> parse_demo_preset_compare(const std::str
     if (first.empty() || second.empty() || first == second) {
         return std::nullopt;
     }
-    if (!parse_demo_preset(first).has_value() || !parse_demo_preset(second).has_value()) {
+    if (!parse_session_preset(first).has_value() || !parse_session_preset(second).has_value()) {
         return std::nullopt;
     }
     return std::vector<std::string> {first, second};
 }
 
-std::vector<std::string> selected_demo_matrix_presets(const DemoMatrixQuery& query) {
+std::vector<std::string> selected_matrix_presets(const MatrixQuery& query) {
     if (!query.compare_presets.empty()) {
         return query.compare_presets;
     }
@@ -94,17 +94,17 @@ std::vector<std::string> selected_demo_matrix_presets(const DemoMatrixQuery& que
     }
 
     std::vector<std::string> presets;
-    for (const auto& preset : demo_preset_mappings()) {
+    for (const auto& preset : session_preset_mappings()) {
         presets.push_back(preset.first);
     }
     return presets;
 }
 
-std::optional<DemoCompareQuery> parse_demo_compare_query(const std::vector<std::string>& args,
+std::optional<CompareQuery> parse_compare_query(const std::vector<std::string>& args,
                                                         bool prefer_bytes_suffix,
                                                         std::string* error) {
     std::vector<std::string> filtered_args;
-    DemoCompareQuery query {};
+    CompareQuery query {};
     query.target.bytes = 1200;
     bool seen_compare = false;
 
@@ -124,7 +124,7 @@ std::optional<DemoCompareQuery> parse_demo_compare_query(const std::vector<std::
                 }
                 return std::nullopt;
             }
-            const auto compare = parse_demo_preset_compare(value);
+            const auto compare = parse_session_preset_compare(value);
             if (!compare.has_value()) {
                 if (error != nullptr) {
                     *error = "ERR: compare must be preset1,preset2";
@@ -149,7 +149,7 @@ std::optional<DemoCompareQuery> parse_demo_compare_query(const std::vector<std::
         return std::nullopt;
     }
 
-    const auto target = parse_demo_bytes_target(filtered_args, 1200, prefer_bytes_suffix, error);
+    const auto target = parse_session_bytes_target(filtered_args, 1200, prefer_bytes_suffix, error);
     if (!target.has_value()) {
         return std::nullopt;
     }
@@ -222,7 +222,7 @@ bool is_supported_profile_name(const std::string& profile) {
     return profile == "ipv4" || profile == "ipv6" || profile == "ethernet";
 }
 
-const std::vector<std::pair<std::string, std::string>>& demo_preset_mappings() {
+const std::vector<std::pair<std::string, std::string>>& session_preset_mappings() {
     static const std::vector<std::pair<std::string, std::string>> presets {
         {"internet-ipv4", "internet ipv4"},
         {"internet-ipv6", "internet ipv6"},
@@ -235,10 +235,10 @@ const std::vector<std::pair<std::string, std::string>>& demo_preset_mappings() {
     return presets;
 }
 
-std::string format_demo_presets() {
+std::string format_presets() {
     std::ostringstream output;
-    output << "demo-presets\n";
-    for (const auto& preset : demo_preset_mappings()) {
+    output << "presets\n";
+    for (const auto& preset : session_preset_mappings()) {
         const std::size_t separator = preset.second.find(' ');
         output << "  " << preset.first;
         if (separator != std::string::npos) {
@@ -1306,17 +1306,17 @@ void print_help() {
         << "  exit | quit\n"
         << "  tick\n"
         << "  clear-stats\n"
-        << "  demo validate [tool-cmd] [bytes] [imsi pdu] [preset=<name>|compare=<a,b>] [dnn=<name>] [profile=<ipv4|ipv6|ethernet>] [json]\n"
-        << "  demo compare [tool-cmd] [bytes] [imsi pdu] compare=<a,b> [json]\n"
-        << "  demo full [imsi pdu] [preset=<name>] [dnn=<name>] [profile=<ipv4|ipv6|ethernet>]\n"
-        << "  demo establish [imsi pdu] [preset=<name>] [dnn=<name>] [profile=<ipv4|ipv6|ethernet>]\n"
-        << "  demo full-tool [bytes] [imsi pdu] [preset=<name>] [dnn=<name>] [profile=<ipv4|ipv6|ethernet>]\n"
-        << "  demo modify [imsi pdu] [preset=<name>] [dnn=<name>] [profile=<ipv4|ipv6|ethernet>]\n"
-        << "  demo release [imsi pdu]\n"
-        << "  demo uplink [bytes] [imsi pdu] [preset=<name>] [dnn=<name>] [profile=<ipv4|ipv6|ethernet>]\n"
-        << "  demo downlink [bytes] [imsi pdu] [preset=<name>] [dnn=<name>] [profile=<ipv4|ipv6|ethernet>]\n"
-        << "  demo downlink-tool [bytes] [imsi pdu] [preset=<name>] [dnn=<name>] [profile=<ipv4|ipv6|ethernet>]\n"
-        << "  demo notify <message>\n"
+        << "  session validate [tool-cmd] [bytes] [imsi pdu] [preset=<name>|compare=<a,b>] [dnn=<name>] [profile=<ipv4|ipv6|ethernet>] [json]\n"
+        << "  session compare [tool-cmd] [bytes] [imsi pdu] compare=<a,b> [json]\n"
+        << "  session full [imsi pdu] [preset=<name>] [dnn=<name>] [profile=<ipv4|ipv6|ethernet>]\n"
+        << "  session establish [imsi pdu] [preset=<name>] [dnn=<name>] [profile=<ipv4|ipv6|ethernet>]\n"
+        << "  session full-tool [bytes] [imsi pdu] [preset=<name>] [dnn=<name>] [profile=<ipv4|ipv6|ethernet>]\n"
+        << "  session modify [imsi pdu] [preset=<name>] [dnn=<name>] [profile=<ipv4|ipv6|ethernet>]\n"
+        << "  session release [imsi pdu]\n"
+        << "  session uplink [bytes] [imsi pdu] [preset=<name>] [dnn=<name>] [profile=<ipv4|ipv6|ethernet>]\n"
+        << "  session downlink [bytes] [imsi pdu] [preset=<name>] [dnn=<name>] [profile=<ipv4|ipv6|ethernet>]\n"
+        << "  session downlink-tool [bytes] [imsi pdu] [preset=<name>] [dnn=<name>] [profile=<ipv4|ipv6|ethernet>]\n"
+        << "  session notify <message>\n"
         << "  set <key> <value>\n"
         << "  commit\n"
         << "  discard\n"
@@ -1325,14 +1325,14 @@ void print_help() {
         << "  show status [json]\n"
         << "  show n6-buffer [json]\n"
         << "  show n6-buffer session <imsi> <pdu> [json]\n"
-        << "  show demo-presets [json]\n"
-        << "  show demo-matrix [imsi pdu [bytes]] [tool-cmd] [json]\n"
-        << "  show demo-compare [imsi pdu [bytes]] compare=<a,b> [tool-cmd] [json]\n"
+        << "  show presets [json]\n"
+        << "  show matrix [imsi pdu [bytes]] [tool-cmd] [json]\n"
+        << "  show compare [imsi pdu [bytes]] compare=<a,b> [tool-cmd] [json]\n"
         << "\n"
         << "Compare Examples:\n"
-        << "  demo compare 1440 250200123450002 22 compare=ims-ipv4,ims-ipv6\n"
-        << "  show demo-compare 250200123450002 22 1440 compare=ims-ipv4,ims-ipv6\n"
-        << "  demo compare tool-cmd 1440 250200123450002 22 compare=ims-ipv4,ims-ipv6 json\n";
+        << "  session compare 1440 250200123450002 22 compare=ims-ipv4,ims-ipv6\n"
+        << "  show compare 250200123450002 22 1440 compare=ims-ipv4,ims-ipv6\n"
+        << "  session compare tool-cmd 1440 250200123450002 22 compare=ims-ipv4,ims-ipv6 json\n";
 }
 
 bool run_demo_downlink_with_tool(UpfRuntime& runtime,
