@@ -4,12 +4,12 @@
 #include <algorithm>
 #include <filesystem>
 #include <iostream>
+#include <iomanip>
 #include <optional>
 #include <sstream>
 #include <string>
 #include <thread>
 #include <vector>
-
 #include "upf/config/runtime_config.hpp"
 
 #if defined(_WIN32)
@@ -21,8 +21,8 @@
 #include <unistd.h>
 #endif
 
+// Вспомогательные функции (все они теперь внутри файла)
 namespace {
-
 #if defined(_WIN32)
 using SocketType = SOCKET;
 constexpr SocketType kInvalidSocket = INVALID_SOCKET;
@@ -55,94 +55,44 @@ bool ensure_network_stack() {
 }
 
 bool parse_endpoint(const std::string& endpoint, std::string* out_host, int* out_port) {
-    if (out_host == nullptr || out_port == nullptr || endpoint.empty()) {
-        return false;
-    }
+    if (!out_host || !out_port || endpoint.empty()) return false;
 
-    const std::size_t separator = endpoint.rfind(':');
-    if (separator == std::string::npos) {
-        return false;
-    }
+    const size_t sep = endpoint.rfind(':');
+    if (sep == std::string::npos) return false;
 
     char* end = nullptr;
-    const long port = std::strtol(endpoint.substr(separator + 1).c_str(), &end, 10);
-    if (end == nullptr || *end != '\0' || port <= 0 || port > 65535) {
+    long port = std::strtol(endpoint.substr(sep + 1).c_str(), &end, 10);
+    if (end == endpoint.substr(sep + 1).c_str() || *end != '\0' || port <= 0 || port > 65535) {
         return false;
     }
 
-    *out_host = endpoint.substr(0, separator);
+    *out_host = endpoint.substr(0, sep);
     *out_port = static_cast<int>(port);
     return true;
 }
 
-std::optional<std::filesystem::path> resolve_config_path(const std::string& argv0,
-                                                         const std::optional<std::string>& explicit_path) {
-    if (explicit_path.has_value()) {
-        const std::filesystem::path configured(*explicit_path);
-        if (std::filesystem::exists(configured)) {
-            return configured;
-        }
-    }
-
-    std::vector<std::filesystem::path> candidates;
-    const auto cwd = std::filesystem::current_path();
-    candidates.push_back(cwd / "config" / "upf-config.yaml");
-    candidates.push_back(cwd.parent_path() / "config" / "upf-config.yaml");
-
-    if (!argv0.empty()) {
-        const auto exe_dir = std::filesystem::absolute(std::filesystem::path(argv0)).parent_path();
-        candidates.push_back(exe_dir / "config" / "upf-config.yaml");
-        candidates.push_back(exe_dir.parent_path() / "config" / "upf-config.yaml");
-    }
-
-    for (const auto& candidate : candidates) {
-        if (std::filesystem::exists(candidate)) {
-            return candidate;
-        }
-    }
-    return std::nullopt;
-}
-
 std::string normalize_destination_host(std::string host) {
-    if (host.empty() || host == "0.0.0.0") {
-        return "127.0.0.1";
-    }
-    if (host == "::" || host == "[::]") {
-        return "::1";
-    }
+    if (host.empty() || host == "0.0.0.0") return "127.0.0.1";
+    if (host == "::" || host == "[::]") return "::1";
     return host;
 }
 
 std::string normalize_protocol(std::string protocol) {
-    for (char& ch : protocol) {
-        ch = static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
-    }
-    if (protocol == "ipv6") {
-        return "IPv6";
-    }
-    if (protocol == "ethernet") {
-        return "Ethernet";
-    }
+    std::transform(protocol.begin(), protocol.end(), protocol.begin(), ::tolower);
+    if (protocol == "ipv6") return "IPv6";
+    if (protocol == "ethernet") return "Ethernet";
     return "IPv4";
 }
 
 std::string default_source_for_protocol(const std::string& protocol) {
-    if (protocol == "IPv6") {
-        return "2001:db8:ffff::10";
-    }
-    if (protocol == "Ethernet") {
-        return "02:00:00:00:00:01";
-    }
+    if (protocol == "IPv6") return "2001:db8:ffff::10";
+    if (protocol == "Ethernet") return "02:00:00:00:00:01";
     return "8.8.8.8";
 }
 
 std::string default_destination_for_protocol(const std::string& protocol) {
-    if (protocol == "IPv6") {
-        return "2001:db8:10::2";
-    }
-    if (protocol == "Ethernet") {
-        return "02:10:10:00:00:02";
-    }
+    if (protocol == "IPv6") return "2001:db8:10::2";
+    if (protocol == "Ethernet") return "02:10:10:00:00:02";
     return "10.10.0.2";
 }
 
@@ -161,15 +111,12 @@ std::string build_payload(const std::string& protocol,
             << " payload_bytes=" << payload_bytes;
 
     if (protocol == "IPv6") {
-        payload << " src_ipv6=" << source
-                << " dst_ipv6=" << destination;
+        payload << " src_ipv6=" << source << " dst_ipv6=" << destination;
     } else if (protocol == "Ethernet") {
-        payload << " src_mac=" << source
-                << " dst_mac=" << destination
+        payload << " src_mac=" << source << " dst_mac=" << destination
                 << " ether_type=2048";
     } else {
-        payload << " src_ipv4=" << source
-                << " dst_ipv4=" << destination;
+        payload << " src_ipv4=" << source << " dst_ipv4=" << destination;
     }
 
     return payload.str();
@@ -177,14 +124,17 @@ std::string build_payload(const std::string& protocol,
 
 bool send_payload_to_endpoint(const std::string& endpoint, const std::string& payload) {
     if (!ensure_network_stack()) {
+        std::cerr << "[ERROR] Failed to initialize network stack\n";
         return false;
     }
 
     std::string host;
     int port = 0;
     if (!parse_endpoint(endpoint, &host, &port)) {
+        std::cerr << "[ERROR] Invalid endpoint format: " << endpoint << "\n";
         return false;
     }
+
     host = normalize_destination_host(host);
 
     addrinfo hints {};
@@ -193,31 +143,68 @@ bool send_payload_to_endpoint(const std::string& endpoint, const std::string& pa
     hints.ai_protocol = IPPROTO_UDP;
 
     addrinfo* result = nullptr;
-    const std::string port_text = std::to_string(port);
-    if (getaddrinfo(host.c_str(), port_text.c_str(), &hints, &result) != 0 || result == nullptr) {
+    std::string port_str = std::to_string(port);
+
+    if (getaddrinfo(host.c_str(), port_str.c_str(), &hints, &result) != 0 || !result) {
+        std::cerr << "[ERROR] getaddrinfo failed for " << host << ":" << port << "\n";
         return false;
     }
 
     SocketType sock = socket(result->ai_family, result->ai_socktype, result->ai_protocol);
     if (sock == kInvalidSocket) {
+        std::cerr << "[ERROR] socket creation failed\n";
         freeaddrinfo(result);
         return false;
     }
 
-    const int sent = sendto(sock,
-                            payload.c_str(),
-                            static_cast<int>(payload.size()),
-                            0,
-                            result->ai_addr,
-                            static_cast<int>(result->ai_addrlen));
+    int sent = sendto(sock,
+                      payload.c_str(),
+                      static_cast<int>(payload.size()),
+                      0,
+                      result->ai_addr,
+                      static_cast<int>(result->ai_addrlen));
+
     close_socket(sock);
     freeaddrinfo(result);
-    return sent == static_cast<int>(payload.size());
+
+    if (sent != static_cast<int>(payload.size())) {
+        std::cerr << "[ERROR] sendto failed: sent " << sent << " of " << payload.size() << " bytes\n";
+        return false;
+    }
+
+    return true;
 }
 
-}  // namespace
+// ===== RESOLVE CONFIG PATH (перенесено сюда, если нет в заголовке) =====
+std::optional<std::filesystem::path> resolve_config_path(const std::string& argv0,
+                                                         const std::optional<std::string>& explicit_path) {
+    if (explicit_path && std::filesystem::exists(*explicit_path)) {
+        return std::filesystem::path(*explicit_path);
+    }
+
+    const auto cwd = std::filesystem::current_path();
+    std::vector<std::filesystem::path> candidates = {
+        cwd / "runtime_config.json",
+        cwd / "config" / "runtime_config.json",
+        cwd.parent_path() / "config" / "runtime_config.json",
+        cwd.parent_path() / "runtime_config.json"
+    };
+
+    for (const auto& c : candidates) {
+        if (std::filesystem::exists(c)) {
+            return c;
+        }
+    }
+
+    return std::nullopt;
+}
+} // anonymous namespace
 
 int main(int argc, char** argv) {
+    std::cout << "=====================================\n";
+    std::cout << "N6 Traffic Tool - vUPF test utility\n";
+    std::cout << "=====================================\n\n";
+
     std::optional<std::string> config_path;
     std::string endpoint;
     std::string imsi = "250200123456789";
@@ -231,84 +218,61 @@ int main(int argc, char** argv) {
     int count = 1;
     int interval_ms = 0;
 
-    for (int index = 1; index < argc; ++index) {
-        const std::string arg = argv[index];
+    for (int i = 1; i < argc; ++i) {
+        std::string arg = argv[i];
+
         auto read_value = [&](const char* name, std::string* target) -> bool {
-            if (index + 1 >= argc || target == nullptr) {
+            if (i + 1 >= argc || !target) {
                 std::cerr << "Missing value for " << name << "\n";
                 return false;
             }
-            *target = argv[++index];
+            *target = argv[++i];
             return true;
         };
 
         auto read_int = [&](const char* name, int* target) -> bool {
             std::string value;
-            if (!read_value(name, &value) || target == nullptr) {
+            if (!read_value(name, &value) || !target) return false;
+            try {
+                *target = std::stoi(value);
+            } catch (...) {
+                std::cerr << "Invalid integer for " << name << "\n";
                 return false;
             }
-            *target = static_cast<int>(std::strtol(value.c_str(), nullptr, 10));
             return true;
         };
 
         if (arg == "--help" || arg == "-h") {
-            std::cout << "Usage: n6_traffic_tool.exe [--config <path>] [--endpoint <host:port>] [--imsi <imsi>] [--pdu <id>] [--dnn <dnn>] [--protocol <ipv4|ipv6|ethernet>] [--src <addr>] [--dst <addr>] [--bytes <n>] [--delay-ms <n>] [--count <n>] [--interval-ms <n>]\n";
+            std::cout << "Usage: n6_traffic_tool.exe [options]\n\n";
+            std::cout << "Options:\n";
+            std::cout << "  --help              Show this help\n";
+            std::cout << "  --config <path>     Config file\n";
+            std::cout << "  --endpoint <host:port> Target endpoint\n";
+            std::cout << "  --imsi <value>      IMSI\n";
+            std::cout << "  --pdu <id>          PDU session ID\n";
+            std::cout << "  --dnn <value>       DNN\n";
+            std::cout << "  --protocol <ipv4|ipv6|ethernet>\n";
+            std::cout << "  --src <addr>        Source IP/MAC\n";
+            std::cout << "  --dst <addr>        Destination IP/MAC\n";
+            std::cout << "  --bytes <n>         Payload size\n";
+            std::cout << "  --delay-ms <n>      Initial delay\n";
+            std::cout << "  --count <n>         Number of packets\n";
+            std::cout << "  --interval-ms <n>   Delay between packets\n";
             return EXIT_SUCCESS;
         }
-
-        if (arg == "--config") {
-            std::string value;
-            if (!read_value("--config", &value)) {
-                return EXIT_FAILURE;
-            }
-            config_path = value;
-        } else if (arg == "--endpoint") {
-            if (!read_value("--endpoint", &endpoint)) {
-                return EXIT_FAILURE;
-            }
-        } else if (arg == "--imsi") {
-            if (!read_value("--imsi", &imsi)) {
-                return EXIT_FAILURE;
-            }
-        } else if (arg == "--pdu") {
-            if (!read_value("--pdu", &pdu_session_id)) {
-                return EXIT_FAILURE;
-            }
-        } else if (arg == "--dnn") {
-            if (!read_value("--dnn", &dnn)) {
-                return EXIT_FAILURE;
-            }
-        } else if (arg == "--protocol") {
-            if (!read_value("--protocol", &protocol)) {
-                return EXIT_FAILURE;
-            }
-        } else if (arg == "--src") {
-            if (!read_value("--src", &source)) {
-                return EXIT_FAILURE;
-            }
-        } else if (arg == "--dst") {
-            if (!read_value("--dst", &destination)) {
-                return EXIT_FAILURE;
-            }
-        } else if (arg == "--bytes") {
-            std::string value;
-            if (!read_value("--bytes", &value)) {
-                return EXIT_FAILURE;
-            }
-            payload_bytes = static_cast<std::size_t>(std::strtoull(value.c_str(), nullptr, 10));
-        } else if (arg == "--delay-ms") {
-            if (!read_int("--delay-ms", &delay_ms)) {
-                return EXIT_FAILURE;
-            }
-        } else if (arg == "--count") {
-            if (!read_int("--count", &count)) {
-                return EXIT_FAILURE;
-            }
-        } else if (arg == "--interval-ms") {
-            if (!read_int("--interval-ms", &interval_ms)) {
-                return EXIT_FAILURE;
-            }
-        } else {
+        else if (arg == "--config")      read_value("--config", &config_path.emplace());
+        else if (arg == "--endpoint")    read_value("--endpoint", &endpoint);
+        else if (arg == "--imsi")        read_value("--imsi", &imsi);
+        else if (arg == "--pdu")         read_value("--pdu", &pdu_session_id);
+        else if (arg == "--dnn")         read_value("--dnn", &dnn);
+        else if (arg == "--protocol")    read_value("--protocol", &protocol);
+        else if (arg == "--src")         read_value("--src", &source);
+        else if (arg == "--dst")         read_value("--dst", &destination);
+        else if (arg == "--bytes")       read_int("--bytes", reinterpret_cast<int*>(&payload_bytes));
+        else if (arg == "--delay-ms")    read_int("--delay-ms", &delay_ms);
+        else if (arg == "--count")       read_int("--count", &count);
+        else if (arg == "--interval-ms") read_int("--interval-ms", &interval_ms);
+        else {
             std::cerr << "Unknown argument: " << arg << "\n";
             return EXIT_FAILURE;
         }
@@ -317,53 +281,48 @@ int main(int argc, char** argv) {
     count = std::max(1, count);
     interval_ms = std::max(0, interval_ms);
 
-    const auto resolved_config = resolve_config_path(argc > 0 ? argv[0] : std::string(), config_path);
-    const upf::RuntimeConfig cfg = upf::load_runtime_config(resolved_config.has_value() ? resolved_config->string() : std::string());
+    // Загрузка конфига
+    const auto resolved = resolve_config_path(argc > 0 ? argv[0] : "", config_path);
+    const upf::RuntimeConfig cfg = upf::load_runtime_config(resolved ? resolved->string() : "");
+
     if (endpoint.empty()) {
-        endpoint = cfg.n6_bind;
+        endpoint = cfg.n6_bind.empty() ? "127.0.0.1:2152" : cfg.n6_bind;
     }
 
-    const std::string normalized_protocol = normalize_protocol(protocol.empty() ? cfg.n6_default_protocol : protocol);
-    if (source.empty()) {
-        source = default_source_for_protocol(normalized_protocol);
-    }
-    if (destination.empty()) {
-        destination = default_destination_for_protocol(normalized_protocol);
-    }
+    const std::string norm_protocol = normalize_protocol(protocol.empty() ? cfg.n6_default_protocol : protocol);
+    source = source.empty() ? default_source_for_protocol(norm_protocol) : source;
+    destination = destination.empty() ? default_destination_for_protocol(norm_protocol) : destination;
+
+    std::cout << "[START] Sending " << count << " packet(s) to " << endpoint << "\n";
+    std::cout << "  Protocol : " << norm_protocol << "\n";
+    std::cout << "  IMSI     : " << imsi << "\n";
+    std::cout << "  PDU ID   : " << pdu_session_id << "\n";
+    std::cout << "  DNN      : " << dnn << "\n";
+    std::cout << "  Payload  : " << payload_bytes << " bytes\n";
+    std::cout << "  Source   : " << source << "\n";
+    std::cout << "  Dest     : " << destination << "\n";
 
     if (delay_ms > 0) {
+        std::cout << "[INFO] Initial delay: " << delay_ms << " ms\n";
         std::this_thread::sleep_for(std::chrono::milliseconds(delay_ms));
     }
 
-    for (int packet_index = 0; packet_index < count; ++packet_index) {
-        const std::string payload = build_payload(normalized_protocol,
-                                                  imsi,
-                                                  pdu_session_id,
-                                                  dnn,
-                                                  payload_bytes,
-                                                  source,
-                                                  destination);
+    for (int i = 0; i < count; ++i) {
+        const std::string payload = build_payload(norm_protocol, imsi, pdu_session_id, dnn,
+                                                  payload_bytes, source, destination);
+
         if (!send_payload_to_endpoint(endpoint, payload)) {
-            std::cerr << "Failed to send N6 payload to " << endpoint << "\n";
+            std::cerr << "[ERROR] Failed to send packet #" << (i+1) << "\n";
             return EXIT_FAILURE;
         }
-        if (packet_index + 1 < count && interval_ms > 0) {
+
+        std::cout << "[SENT] Packet #" << (i+1) << " (" << payload_bytes << " bytes)\n";
+
+        if (i + 1 < count && interval_ms > 0) {
             std::this_thread::sleep_for(std::chrono::milliseconds(interval_ms));
         }
     }
 
-    if (resolved_config.has_value()) {
-        std::cout << "Using config: " << resolved_config->string() << "\n";
-    } else {
-        std::cout << "Using built-in defaults (config file not found)\n";
-    }
-
-    std::cout << "Sent N6 payload to " << endpoint
-              << " protocol=" << normalized_protocol
-              << " imsi=" << imsi
-              << " pdu=" << pdu_session_id
-              << " bytes=" << payload_bytes
-              << " count=" << count
-              << "\n";
+    std::cout << "[FINISH] All packets sent successfully\n";
     return EXIT_SUCCESS;
 }

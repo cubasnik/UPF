@@ -39,7 +39,9 @@
 
 # Build directories
 build/
-
+Release/
+Debug/
+*.exe
 # Temporary local references
 .smf_reference/
 

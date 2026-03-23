@@ -1,0 +1,10 @@
+{
+    "n3_interface": "eth0",
+    "n4_interface": "lo",
+    "n6_interface": "eth2",
+    "n4_port": 8805,
+    "sbi_port": 8080,
+    "packet_buffer_size": 131072,
+    "session_table_size": 2000,
+    "verbose": false
+}

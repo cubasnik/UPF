@@ -1,48 +1,64 @@
 #pragma once
 
-#include <mutex>
-
-#include "upf/interfaces.hpp"
-#include "upf/modules/session_table.hpp"
+#include "upf/config/runtime_config.hpp"
+#include <string>
+#include <optional>
+#include <vector>
+#include <memory>
 
 namespace upf {
 
-class UpfNode final : public IUpfNode {
-public:
-    UpfNode(IN4Interface& n4, ISbiInterface& sbi, UpfPeerInterfaces peers = {});
-
-    bool start() override;
-    bool stop() override;
-    bool set_degraded() override;
-    bool recover() override;
-    void tick() override;
-
-    bool establish_session(const PfcpSessionRequest& request) override;
-    bool modify_session(const PfcpSessionRequest& request) override;
-    bool release_session(const std::string& imsi, const std::string& pdu_session_id) override;
-
-    bool process_uplink(const std::string& imsi, const std::string& pdu_session_id, std::size_t bytes) override;
-    bool process_downlink(const std::string& imsi, const std::string& pdu_session_id, std::size_t bytes) override;
-
-    std::optional<SessionContext> find_session(const std::string& imsi, const std::string& pdu_session_id) const override;
-    std::vector<SessionContext> list_sessions() const override;
-    std::optional<N6SessionBufferSnapshot> inspect_n6_session(const std::string& imsi, const std::string& pdu_session_id) const override;
-
-    bool notify_sbi(const std::string& service_name, const std::string& payload) override;
-    UpfStatusSnapshot status() const override;
-    void clear_stats() override;
-
-private:
-    bool is_operational() const;
-
-    IN4Interface& n4_;
-    ISbiInterface& sbi_;
-    UpfPeerInterfaces peers_ {};
-
-    mutable std::mutex mutex_;
-    UpfState state_ {UpfState::Idle};
-    SessionTable sessions_ {};
-    UpfStats stats_ {};
+// Структура для запроса сессии
+struct SessionRequest {
+    std::string imsi;
+    uint32_t pdu_session_id = 0;
+    std::string n3_address;
+    uint16_t n3_port = 0;
+    std::string n6_address;
+    uint16_t n6_port = 0;
+    uint32_t qos_flow_id = 0;
+    uint64_t uplink_rate = 0;
+    uint64_t downlink_rate = 0;
 };
 
-}  // namespace upf
+// Структура для статуса UPF
+struct UpfStatusSnapshot {
+    size_t active_sessions = 0;
+    uint64_t uplink_bytes = 0;
+    uint64_t downlink_bytes = 0;
+    uint64_t total_packets = 0;
+    bool is_running = false;
+};
+
+// Основной класс UPF узла
+class UpfNode {
+public:
+    UpfNode(const std::string& n4_address, 
+            const std::string& sbi_address,
+            const std::vector<std::string>& peer_addresses);
+    
+    ~UpfNode();
+    
+    bool start();
+    bool stop();
+    bool is_running() const;
+    
+    // Управление сессиями
+    bool establish_session(const SessionRequest& request);
+    bool modify_session(const SessionRequest& request);
+    bool release_session(const std::string& imsi, uint32_t pdu_session_id);
+    std::optional<SessionRequest> find_session(const std::string& imsi, uint32_t pdu_session_id);
+    
+    // Обработка трафика
+    bool process_uplink(const std::string& imsi, uint32_t pdu_session_id, size_t bytes);
+    bool process_downlink(const std::string& imsi, uint32_t pdu_session_id, size_t bytes);
+    
+    // Статус и статистика
+    UpfStatusSnapshot status() const;
+    
+private:
+    struct Impl;
+    std::unique_ptr<Impl> pImpl_;
+};
+
+} // namespace upf

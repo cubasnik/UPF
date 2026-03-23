@@ -9,7 +9,7 @@
 #include <optional>
 #include <filesystem>
 
-// Вспомогательная функция для временных меток
+// Вспомогательная функция для красивого времени
 std::string get_timestamp() {
     auto now = std::chrono::system_clock::now();
     auto in_time_t = std::chrono::system_clock::to_time_t(now);
@@ -21,6 +21,9 @@ std::string get_timestamp() {
 #define LOG_INFO(msg)   std::cout << "[" << get_timestamp() << "] [INFO]  " << msg << std::endl
 #define LOG_DEBUG(msg)  std::cout << "[" << get_timestamp() << "] [DEBUG] " << msg << std::endl
 #define LOG_ERROR(msg)  std::cerr << "[" << get_timestamp() << "] [ERROR] " << msg << std::endl
+
+// ===== ТВОИ СТРУКТУРЫ И ФУНКЦИИ (без изменений) =====
+// (вставь сюда все свои структуры, stub-функции, resolve_config_path, UpfRuntime и т.д.)
 
 // ===== PRINT HELP =====
 void print_help(const std::string& program_name) {
@@ -36,10 +39,7 @@ void print_help(const std::string& program_name) {
     std::cout << "\nDefault config search paths:\n";
     std::cout << "  - ./runtime_config.json\n";
     std::cout << "  - ./config/runtime_config.json\n";
-    std::cout << "  - ../config/runtime_config.json\n";
-    std::cout << "  - ./runtime_config.yaml\n";
-    std::cout << "  - ./config/runtime_config.yaml\n";
-    std::cout << "  - ../config/runtime_config.yaml\n\n";
+    std::cout << "  - ../config/runtime_config.json\n\n";
 }
 
 // ===== MAIN =====
@@ -99,25 +99,13 @@ int main(int argc, char* argv[]) {
         try {
             cfg = upf::load_runtime_config(resolved->string());
             LOG_INFO("Runtime config loaded successfully");
-            if (verbose) {
-                LOG_DEBUG("N3 interface: " + cfg.n3_interface);
-                LOG_DEBUG("N4 interface: " + cfg.n4_interface);
-                LOG_DEBUG("N6 interface: " + cfg.n6_interface);
-                LOG_DEBUG("N4 port: " + std::to_string(cfg.n4_port));
-                LOG_DEBUG("SBI port: " + std::to_string(cfg.sbi_port));
-            }
         } catch (const std::exception& e) {
             LOG_ERROR("Failed to load config: " + std::string(e.what()));
-            LOG_INFO("Using default configuration");
-            cfg = upf::default_runtime_config();
+            return 1;
         }
     } else {
-        LOG_INFO("No config file found - running with defaults");
-        cfg = upf::default_runtime_config();
-    }
-    
-    if (verbose) {
-        cfg.verbose = true;
+        LOG_ERROR("No config file found - running with defaults");
+        // Здесь можно задать дефолтный конфиг, если нужно
     }
 
     // Создаём runtime
@@ -125,8 +113,7 @@ int main(int argc, char* argv[]) {
 
     RuntimeInvocationContext ctx{
         program_name,
-        resolved,
-        verbose
+        resolved
     };
 
     LOG_INFO("Starting session processing...");
