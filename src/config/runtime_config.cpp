@@ -1,127 +1,293 @@
+#ifdef _WIN32
+#define UPF_COLOR_INFO "\033[34m"
+#define UPF_COLOR_ERROR "\033[31m"
+#define UPF_COLOR_RESET "\033[0m"
+#else
+constexpr const char* UPF_COLOR_INFO = "\033[34m";
+constexpr const char* UPF_COLOR_ERROR = "\033[31m";
+constexpr const char* UPF_COLOR_RESET = "\033[0m";
+#endif
 #include "upf/config/runtime_config.hpp"
-
-#include <algorithm>
-#include <cctype>
 #include <fstream>
+#include <iostream>
+#include <filesystem>
+#include <sstream>
+#include <vector>
+#include <cstring>
+#include <optional>
+#include "upf/upf.hpp"
 #include <string>
 
 namespace upf {
 
-namespace {
-
-std::string trim(std::string value) {
-    value.erase(value.begin(), std::find_if(value.begin(), value.end(), [](unsigned char ch) { return !std::isspace(ch); }));
-    value.erase(std::find_if(value.rbegin(), value.rend(), [](unsigned char ch) { return !std::isspace(ch); }).base(), value.end());
-    return value;
+RuntimeConfig default_runtime_config() {
+    RuntimeConfig config;
+    config.verbose = false;
+    config.config_file = "";
+    config.n3_interface = "eth0";
+    config.n4_interface = "eth1";
+    config.n6_interface = "eth2";
+    config.n4_port = 8805;
+    config.sbi_port = 8080;
+    config.packet_buffer_size = 65536;
+    config.session_table_size = 1000;
+    return config;
 }
-
-std::string unquote(std::string value) {
-    value = trim(value);
-    if (!value.empty() && value.back() == ',') {
-        value.pop_back();
-    }
-    value = trim(value);
-    if (value.size() >= 2 && value.front() == '"' && value.back() == '"') {
-        return value.substr(1, value.size() - 2);
-    }
-    return value;
-}
-
-bool parse_bool(const std::string& value, bool fallback) {
-    if (value == "true" || value == "1") {
-        return true;
-    }
-    if (value == "false" || value == "0") {
-        return false;
-    }
-    return fallback;
-}
-
-int parse_int(const std::string& value, int fallback) {
-    try {
-        return std::stoi(value);
-    } catch (...) {
-        return fallback;
-    }
-}
-
-void apply_key_value(RuntimeConfig& cfg, const std::string& raw_key, const std::string& raw_value) {
-    std::string key = trim(raw_key);
-    key.erase(std::remove(key.begin(), key.end(), '"'), key.end());
-
-    const std::string value = unquote(raw_value);
-
-    if (key == "node_id") {
-        cfg.node_id = value;
-    } else if (key == "n3_bind") {
-        cfg.n3_bind = value;
-    } else if (key == "n4_bind") {
-        cfg.n4_bind = value;
-    } else if (key == "n6_bind") {
-        cfg.n6_bind = value;
-    } else if (key == "n6_remote_host") {
-        cfg.n6_remote_host = value;
-    } else if (key == "n6_remote_port") {
-        cfg.n6_remote_port = parse_int(value, cfg.n6_remote_port);
-    } else if (key == "n6_default_protocol") {
-        cfg.n6_default_protocol = value;
-    } else if (key == "n6_downlink_wait_timeout_ms") {
-        cfg.n6_downlink_wait_timeout_ms = parse_int(value, cfg.n6_downlink_wait_timeout_ms);
-    } else if (key == "n6_buffer_capacity") {
-        cfg.n6_buffer_capacity = static_cast<std::size_t>(std::max(1, parse_int(value, static_cast<int>(cfg.n6_buffer_capacity))));
-    } else if (key == "n6_buffer_overflow_policy") {
-        cfg.n6_buffer_overflow_policy = value;
-    } else if (key == "enable_n9") {
-        cfg.enable_n9 = parse_bool(value, cfg.enable_n9);
-    } else if (key == "strict_pfcp") {
-        cfg.strict_pfcp = parse_bool(value, cfg.strict_pfcp);
-    } else if (key == "n4_remote_host") {
-        cfg.n4_remote_host = value;
-    } else if (key == "n4_remote_port") {
-        cfg.n4_remote_port = parse_int(value, cfg.n4_remote_port);
-    } else if (key == "n4_timeout_ms") {
-        cfg.n4_timeout_ms = parse_int(value, cfg.n4_timeout_ms);
-    } else if (key == "sbi_host") {
-        cfg.sbi_host = value;
-    } else if (key == "sbi_port") {
-        cfg.sbi_port = parse_int(value, cfg.sbi_port);
-    } else if (key == "sbi_path") {
-        cfg.sbi_path = value;
-    } else if (key == "sbi_timeout_ms") {
-        cfg.sbi_timeout_ms = parse_int(value, cfg.sbi_timeout_ms);
-    } else if (key == "heartbeat_interval_ms") {
-        cfg.heartbeat_interval_ms = parse_int(value, cfg.heartbeat_interval_ms);
-    }
-}
-
-}  // namespace
 
 RuntimeConfig load_runtime_config(const std::string& path) {
-    RuntimeConfig cfg {};
-
-    std::ifstream input(path);
-    if (!input.is_open()) {
-        return cfg;
+    RuntimeConfig config = default_runtime_config();
+    config.config_file = path;
+    
+    std::cout << "[CONFIG] Loading config from: " << path << std::endl;
+    
+    // Проверяем существование файла
+    if (!std::filesystem::exists(path)) {
+        std::cerr << "[CONFIG] Warning: Config file does not exist: " << path << std::endl;
+        std::cerr << "[CONFIG] Using default configuration" << std::endl;
+        return config;
     }
-
-    std::string line;
-    while (std::getline(input, line)) {
-        const std::string cleaned = trim(line);
-        if (cleaned.empty() || cleaned[0] == '#') {
-            continue;
+    
+    // Определяем тип файла по расширению
+    std::string extension = std::filesystem::path(path).extension().string();
+    
+    try {
+        if (extension == ".json") {
+            // Простой парсинг JSON
+            std::ifstream file(path);
+            if (!file.is_open()) {
+                throw std::runtime_error("Cannot open file");
+            }
+            
+            std::stringstream buffer;
+            buffer << file.rdbuf();
+            std::string content = buffer.str();
+            
+            // Очень простой парсинг JSON
+            auto find_value = [&content](const std::string& key) -> std::string {
+                size_t pos = content.find("\"" + key + "\"");
+                if (pos == std::string::npos) return "";
+                pos = content.find(":", pos);
+                if (pos == std::string::npos) return "";
+                pos++;
+                while (pos < content.length() && (content[pos] == ' ' || content[pos] == '\t')) pos++;
+                if (pos >= content.length()) return "";
+                
+                size_t end = pos;
+                if (content[pos] == '"') {
+                    pos++;
+                    end = content.find("\"", pos);
+                    if (end == std::string::npos) return "";
+                    return content.substr(pos, end - pos);
+                } else {
+                    while (end < content.length() && content[end] != ',' && content[end] != '}' && content[end] != '\n') end++;
+                    return content.substr(pos, end - pos);
+                }
+            };
+            
+            // Загружаем значения
+            std::string n3_val = find_value("n3_interface");
+            if (!n3_val.empty()) config.n3_interface = n3_val;
+            
+            std::string n4_val = find_value("n4_interface");
+            if (!n4_val.empty()) config.n4_interface = n4_val;
+            
+            std::string n6_val = find_value("n6_interface");
+            if (!n6_val.empty()) config.n6_interface = n6_val;
+            
+            std::string n4_port_val = find_value("n4_port");
+            if (!n4_port_val.empty()) config.n4_port = std::stoi(n4_port_val);
+            
+            std::string sbi_port_val = find_value("sbi_port");
+            if (!sbi_port_val.empty()) config.sbi_port = std::stoi(sbi_port_val);
+            
+            std::string verbose_val = find_value("verbose");
+            if (!verbose_val.empty()) config.verbose = (verbose_val == "true");
+            
+            std::cout << "[CONFIG] JSON config loaded successfully" << std::endl;
         }
-
-        const std::size_t pos = cleaned.find(':');
-        if (pos == std::string::npos) {
-            continue;
+        else if (extension == ".yaml" || extension == ".yml") {
+            // Простой парсинг YAML
+            std::ifstream file(path);
+            if (!file.is_open()) {
+                throw std::runtime_error("Cannot open file");
+            }
+            
+            std::string line;
+            while (std::getline(file, line)) {
+                size_t colon_pos = line.find(':');
+                if (colon_pos != std::string::npos) {
+                    std::string key = line.substr(0, colon_pos);
+                    std::string value = line.substr(colon_pos + 1);
+                    
+                    // Удаляем пробелы
+                    key.erase(0, key.find_first_not_of(" \t"));
+                    key.erase(key.find_last_not_of(" \t") + 1);
+                    value.erase(0, value.find_first_not_of(" \t"));
+                    value.erase(value.find_last_not_of(" \t\r") + 1);
+                    
+                    if (key == "n3_interface") config.n3_interface = value;
+                    else if (key == "n4_interface") config.n4_interface = value;
+                    else if (key == "n6_interface") config.n6_interface = value;
+                    else if (key == "n4_port") config.n4_port = std::stoi(value);
+                    else if (key == "sbi_port") config.sbi_port = std::stoi(value);
+                    else if (key == "verbose") config.verbose = (value == "true");
+                }
+            }
+            std::cout << "[CONFIG] YAML config loaded successfully" << std::endl;
         }
-
-        const std::string key = cleaned.substr(0, pos);
-        const std::string value = cleaned.substr(pos + 1);
-        apply_key_value(cfg, key, value);
+        else {
+            std::cerr << "[CONFIG] Unknown config file format: " << extension << std::endl;
+            std::cerr << "[CONFIG] Using default configuration" << std::endl;
+        }
     }
-
-    return cfg;
+    catch (const std::exception& e) {
+        std::cerr << "[CONFIG] Error loading config: " << e.what() << std::endl;
+        std::cerr << "[CONFIG] Using default configuration" << std::endl;
+    }
+    
+    return config;
 }
 
-}  // namespace upf
+} // namespace upf
+
+// Реализация функций для main.cpp
+
+std::optional<std::filesystem::path> resolve_config_path(
+    const std::string& program_name,
+    const std::optional<std::string>& provided_path) {
+    
+    // Если путь указан в командной строке, используем его
+    if (provided_path.has_value()) {
+        std::filesystem::path path(provided_path.value());
+        if (std::filesystem::exists(path)) {
+            return std::filesystem::absolute(path);
+        }
+        std::cerr << "[CONFIG] Provided config path does not exist: " << provided_path.value() << std::endl;
+        return std::nullopt;
+    }
+    
+    // Ищем в стандартных местах
+    std::vector<std::filesystem::path> search_paths = {
+        "runtime_config.json",
+        "config/runtime_config.json",
+        "../config/runtime_config.json",
+        "./runtime_config.yaml",
+        "./config/runtime_config.yaml",
+        "../config/runtime_config.yaml",
+        "upf_config.json",
+        "config/upf_config.json",
+        "upf_config.yaml",
+        "config/upf_config.yaml"
+    };
+    
+    // Получаем путь к исполняемому файлу
+    std::filesystem::path exe_path;
+    if (!program_name.empty()) {
+        exe_path = std::filesystem::path(program_name).parent_path();
+    }
+    
+    for (const auto& path : search_paths) {
+        // Проверяем относительно текущей директории
+        if (std::filesystem::exists(path)) {
+            std::cout << "[CONFIG] Found config at: " << std::filesystem::absolute(path) << std::endl;
+            return std::filesystem::absolute(path);
+        }
+        
+        // Проверяем относительно директории исполняемого файла
+        if (!exe_path.empty()) {
+            std::filesystem::path full_path = exe_path / path;
+            if (std::filesystem::exists(full_path)) {
+                std::cout << "[CONFIG] Found config at: " << full_path << std::endl;
+                return full_path;
+            }
+        }
+    }
+    
+    std::cout << "[CONFIG] No config file found, using defaults" << std::endl;
+    return std::nullopt;
+}
+
+
+bool UpfRuntime::initialize() {
+    if (initialized_) {
+        return true;
+    }
+    
+    std::cout << UPF_COLOR_INFO << "[UPF] Initializing UPF runtime..." << UPF_COLOR_RESET << std::endl;
+    
+    // Инициализация интерфейсов
+    std::cout << UPF_COLOR_INFO << "[UPF] N3 interface: " << config_.n3_interface << UPF_COLOR_RESET << std::endl;
+    std::cout << UPF_COLOR_INFO << "[UPF] N4 interface: " << config_.n4_interface << UPF_COLOR_RESET << std::endl;
+    std::cout << UPF_COLOR_INFO << "[UPF] N6 interface: " << config_.n6_interface << UPF_COLOR_RESET << std::endl;
+    std::cout << UPF_COLOR_INFO << "[UPF] N4 port: " << config_.n4_port << UPF_COLOR_RESET << std::endl;
+    std::cout << UPF_COLOR_INFO << "[UPF] SBI port: " << config_.sbi_port << UPF_COLOR_RESET << std::endl;
+    std::cout << UPF_COLOR_INFO << "[UPF] Packet buffer size: " << config_.packet_buffer_size << UPF_COLOR_RESET << std::endl;
+    std::cout << UPF_COLOR_INFO << "[UPF] Session table size: " << config_.session_table_size << UPF_COLOR_RESET << std::endl;
+    
+    initialized_ = true;
+    std::cout << UPF_COLOR_INFO << "[UPF] UPF runtime initialized successfully" << UPF_COLOR_RESET << std::endl;
+    return true;
+}
+
+void UpfRuntime::shutdown() {
+    if (!initialized_) {
+        return;
+    }
+    
+    std::cout << UPF_COLOR_INFO << "[UPF] Shutting down UPF runtime..." << UPF_COLOR_RESET << std::endl;
+    
+    initialized_ = false;
+    std::cout << UPF_COLOR_INFO << "[UPF] UPF runtime shutdown complete" << UPF_COLOR_RESET << std::endl;
+}
+
+int UpfRuntime::run_session() {
+    if (!initialize()) {
+        std::cerr << UPF_COLOR_ERROR << "[UPF] Failed to initialize runtime" << UPF_COLOR_RESET << std::endl;
+        return 1;
+    }
+    
+    std::cout << UPF_COLOR_INFO << "[UPF] Running UPF session..." << UPF_COLOR_RESET << std::endl;
+    
+    // Для примера просто ждем Enter для завершения
+    std::cout << UPF_COLOR_INFO << "[UPF] UPF is running. Press Enter to stop..." << UPF_COLOR_RESET << std::endl;
+    std::cin.get();
+    
+    return 0;
+}
+
+// Реализация run_session_once
+
+int run_session_once(UpfRuntime& runtime, const RuntimeInvocationContext& ctx, bool no_wait) {
+    if (ctx.verbose) {
+        std::cout << "[MAIN] Running session with context:" << std::endl;
+        std::cout << "[MAIN]   Program: " << ctx.program_name << std::endl;
+        if (ctx.config_path) {
+            std::cout << "[MAIN]   Config: " << ctx.config_path->string() << std::endl;
+        }
+        std::cout << "[MAIN]   Verbose: " << (ctx.verbose ? "enabled" : "disabled") << std::endl;
+    }
+    
+    int result = runtime.run_session(no_wait);
+    
+    if (ctx.verbose) {
+        std::cout << "[MAIN] Session completed with code: " << result << std::endl;
+    }
+    
+    return result;
+}
+
+// Обновленная версия run_session с опцией no_wait
+int UpfRuntime::run_session(bool no_wait) {
+    if (!initialize()) {
+        std::cerr << UPF_COLOR_ERROR << "[UPF] Failed to initialize runtime" << UPF_COLOR_RESET << std::endl;
+        return 1;
+    }
+    std::cout << UPF_COLOR_INFO << "[UPF] Running UPF session..." << UPF_COLOR_RESET << std::endl;
+    if (no_wait) {
+        std::cout << UPF_COLOR_INFO << "[UPF] [TEST MODE] Auto-exit enabled (no wait for Enter)" << UPF_COLOR_RESET << std::endl;
+        return 0;
+    }
+    std::cout << UPF_COLOR_INFO << "[UPF] UPF is running. Press Enter to stop..." << UPF_COLOR_RESET << std::endl;
+    std::cin.get();
+    return 0;
+}

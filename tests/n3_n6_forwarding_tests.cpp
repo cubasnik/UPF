@@ -3,7 +3,7 @@
 #include <vector>
 
 #include "upf/interfaces.hpp"
-#include "upf/upf.hpp"
+#include "upf/node.hpp"
 
 namespace {
 
@@ -236,7 +236,7 @@ int main() {
         return EXIT_FAILURE;
     }
 
-    if (!node.release_session(req.imsi, req.pdu_session_id)) {
+    if (!node.release_session(req.imsi, static_cast<uint32_t>(std::stoul(req.pdu_session_id)))) {
         return EXIT_FAILURE;
     }
     if (n6.removed != 1) {

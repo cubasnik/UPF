@@ -1,6 +1,7 @@
 #include <cstdlib>
 
 #include "upf/config/runtime_config.hpp"
+#include "upf/upf.hpp"
 
 int main() {
     const upf::RuntimeConfig cfg = upf::load_runtime_config("config/upf-config.yaml");

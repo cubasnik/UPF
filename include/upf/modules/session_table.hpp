@@ -1,6 +1,7 @@
 #pragma once
 
 #include <optional>
+#include <mutex>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -8,21 +9,31 @@
 #include "upf/interfaces.hpp"
 
 namespace upf {
+namespace modules {
+
+struct SessionInfo {
+    std::string imsi;
+    uint32_t pdu_session_id;
+    // другие поля по необходимости
+};
 
 class SessionTable {
 public:
-    bool create(const SessionContext& context);
-    bool modify(const SessionContext& context);
-    bool remove(const std::string& imsi, const std::string& pdu_session_id);
+    SessionTable(size_t max_sessions);
+    ~SessionTable();
 
-    std::optional<SessionContext> find(const std::string& imsi, const std::string& pdu_session_id) const;
-    std::vector<SessionContext> list() const;
-    std::size_t size() const;
+    bool add_session(const SessionInfo& info);
+    bool remove_session(const std::string& imsi, uint32_t pdu_session_id);
+    std::optional<SessionInfo> find_session(const std::string& imsi, uint32_t pdu_session_id);
+    size_t size() const;
+    void clear();
 
 private:
-    static std::string key_of(const std::string& imsi, const std::string& pdu_session_id);
-
-    std::unordered_map<std::string, SessionContext> sessions_;
+    std::string make_key(const std::string& imsi, uint32_t pdu_session_id) const;
+    std::unordered_map<std::string, SessionInfo> sessions_;
+    size_t max_sessions_;
+    mutable std::mutex mutex_;
 };
 
-}  // namespace upf
+} // namespace modules
+} // namespace upf

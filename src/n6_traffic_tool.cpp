@@ -11,6 +11,7 @@
 #include <thread>
 #include <vector>
 #include "upf/config/runtime_config.hpp"
+#include "upf/upf.hpp"
 
 #if defined(_WIN32)
 #include <winsock2.h>
@@ -282,7 +283,7 @@ int main(int argc, char** argv) {
     interval_ms = std::max(0, interval_ms);
 
     // Загрузка конфига
-    const auto resolved = resolve_config_path(argc > 0 ? argv[0] : "", config_path);
+    const auto resolved = ::resolve_config_path(argc > 0 ? argv[0] : "", config_path);
     const upf::RuntimeConfig cfg = upf::load_runtime_config(resolved ? resolved->string() : "");
 
     if (endpoint.empty()) {

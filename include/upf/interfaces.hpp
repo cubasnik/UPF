@@ -117,6 +117,7 @@ struct UpfStatusSnapshot {
     std::size_t active_sessions {0};
     UpfStats stats {};
     std::optional<N6BufferStatus> n6_buffer;
+    bool is_running = false;
 };
 
 enum class PfcpOperation {

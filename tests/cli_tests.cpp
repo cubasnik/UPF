@@ -1,9 +1,11 @@
+
 #include <cstdlib>
 #include <string>
 
 #include "upf/adapters/console_adapters.hpp"
 #include "upf/cli.hpp"
-#include "upf/upf.hpp"
+#include "upf/node.hpp"
+#include "upf/interfaces.hpp"
 
 int main() {
     upf::RuntimeConfig cfg {};

@@ -1,0 +1,9 @@
+[UPF] Starting UPF node...
+[UPF] N4 address: 
+[UPF] SBI address: 
+[UPF] Peers: 
+[UPF] UPF node started successfully
+[UPF] Session established: 250200123456789:5
+[UPF]   N3: 0x111:0
+[UPF]   N6: 10.0.0.10:0
+[SBI] Notification: nupf-event-exposure - session-up

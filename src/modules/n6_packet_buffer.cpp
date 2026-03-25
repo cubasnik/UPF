@@ -1,116 +1,92 @@
-#include "upf/modules/n6_packet_buffer.hpp"
 
-#include <utility>
+
+#include "upf/modules/n6_packet_buffer.hpp"
+#include <algorithm>
 
 namespace upf {
 
 N6PacketBuffer::N6PacketBuffer(std::size_t per_session_capacity)
-    : per_session_capacity_(per_session_capacity == 0 ? 1 : per_session_capacity) {}
+    : per_session_capacity_(per_session_capacity) {}
 
 N6PacketBuffer::EnqueueResult N6PacketBuffer::enqueue(const std::string& session_key,
-                                                      N6Packet packet,
-                                                      N6BufferOverflowPolicy policy) {
-    if (session_key.empty()) {
-        return EnqueueResult {false, N6BufferDropReason::None};
-    }
-
+                                                     N6Packet packet,
+                                                     N6BufferOverflowPolicy policy) {
     std::lock_guard<std::mutex> lock(mutex_);
     auto& queue = session_queues_[session_key];
-    auto& session_stats = session_stats_[session_key];
-    if (queue.empty()) {
-        stats_.active_sessions = session_queues_.size();
-    }
+    auto& stats = session_stats_[session_key];
+    EnqueueResult result;
     if (queue.size() >= per_session_capacity_) {
-        ++stats_.dropped_packets;
-        if (policy == N6BufferOverflowPolicy::DropNewest) {
-            ++stats_.dropped_overflow_newest;
-            ++stats_.rejected_by_policy;
-            ++session_stats.dropped_packets;
-            ++session_stats.dropped_overflow_newest;
-            ++session_stats.rejected_by_policy;
-            return EnqueueResult {false, N6BufferDropReason::OverflowDropNewest};
+        result.accepted = false;
+        if (policy == N6BufferOverflowPolicy::DropOldest) {
+            queue.pop_front();
+            stats.dropped_overflow_oldest++;
+            result.drop_reason = N6BufferDropReason::OverflowDropOldest;
+        } else {
+            stats.dropped_overflow_newest++;
+            result.drop_reason = N6BufferDropReason::OverflowDropNewest;
+            return result;
         }
-
-        queue.pop_front();
-        ++stats_.dropped_overflow_oldest;
-        ++session_stats.dropped_packets;
-        ++session_stats.dropped_overflow_oldest;
-        --stats_.buffered_packets;
-        --session_stats.buffered_packets;
-        queue.push_back(std::move(packet));
-        ++stats_.enqueued_packets;
-        ++session_stats.enqueued_packets;
-        ++stats_.buffered_packets;
-        ++session_stats.buffered_packets;
-        return EnqueueResult {true, N6BufferDropReason::OverflowDropOldest};
     }
     queue.push_back(std::move(packet));
-    ++stats_.enqueued_packets;
-    ++session_stats.enqueued_packets;
-    ++stats_.buffered_packets;
-    ++session_stats.buffered_packets;
-    return EnqueueResult {true, N6BufferDropReason::None};
+    stats.enqueued_packets++;
+    stats.buffered_packets = queue.size();
+    stats.rejected_by_policy = 0; // For simplicity
+    result.accepted = true;
+    result.drop_reason = N6BufferDropReason::None;
+    return result;
 }
 
 std::optional<N6Packet> N6PacketBuffer::dequeue(const std::string& session_key) {
     std::lock_guard<std::mutex> lock(mutex_);
-    const auto it = session_queues_.find(session_key);
+    auto it = session_queues_.find(session_key);
     if (it == session_queues_.end() || it->second.empty()) {
         return std::nullopt;
     }
-
-    N6Packet packet = std::move(it->second.front());
-    it->second.pop_front();
-    ++stats_.dequeued_packets;
-    ++session_stats_[session_key].dequeued_packets;
-    --stats_.buffered_packets;
-    --session_stats_[session_key].buffered_packets;
-    if (it->second.empty()) {
-        session_queues_.erase(it);
-        stats_.active_sessions = session_queues_.size();
-    }
-    return packet;
+    auto& queue = it->second;
+    N6Packet pkt = std::move(queue.front());
+    queue.pop_front();
+    session_stats_[session_key].dequeued_packets++;
+    session_stats_[session_key].buffered_packets = queue.size();
+    return pkt;
 }
 
 void N6PacketBuffer::clear_session(const std::string& session_key) {
     std::lock_guard<std::mutex> lock(mutex_);
-    const auto it = session_queues_.find(session_key);
-    if (it == session_queues_.end()) {
-        return;
-    }
-
-    stats_.dropped_packets += it->second.size();
-    stats_.dropped_session_removed += it->second.size();
-    session_stats_[session_key].dropped_packets += it->second.size();
-    session_stats_[session_key].dropped_session_removed += it->second.size();
-    stats_.buffered_packets -= it->second.size();
-    session_stats_[session_key].buffered_packets = 0;
-    session_queues_.erase(it);
-    stats_.active_sessions = session_queues_.size();
+    session_queues_.erase(session_key);
+    session_stats_.erase(session_key);
 }
 
 std::size_t N6PacketBuffer::buffered_packets(const std::string& session_key) const {
     std::lock_guard<std::mutex> lock(mutex_);
-    const auto it = session_queues_.find(session_key);
-    return it == session_queues_.end() ? 0U : it->second.size();
+    auto it = session_queues_.find(session_key);
+    return (it != session_queues_.end()) ? it->second.size() : 0;
 }
 
 N6PacketBuffer::SessionStats N6PacketBuffer::session_stats(const std::string& session_key) const {
     std::lock_guard<std::mutex> lock(mutex_);
-    SessionStats stats = {};
-    if (const auto it = session_stats_.find(session_key); it != session_stats_.end()) {
-        stats = it->second;
-    }
-    return stats;
+    auto it = session_stats_.find(session_key);
+    return (it != session_stats_.end()) ? it->second : SessionStats{};
 }
 
 N6PacketBuffer::Stats N6PacketBuffer::stats() const {
     std::lock_guard<std::mutex> lock(mutex_);
-    return stats_;
+    Stats total;
+    for (const auto& [key, stats] : session_stats_) {
+        total.enqueued_packets += stats.enqueued_packets;
+        total.dequeued_packets += stats.dequeued_packets;
+        total.dropped_packets += stats.dropped_packets;
+        total.buffered_packets += stats.buffered_packets;
+        total.dropped_overflow_oldest += stats.dropped_overflow_oldest;
+        total.dropped_overflow_newest += stats.dropped_overflow_newest;
+        total.dropped_session_removed += stats.dropped_session_removed;
+        total.rejected_by_policy += stats.rejected_by_policy;
+        total.active_sessions++;
+    }
+    return total;
 }
 
 std::size_t N6PacketBuffer::capacity() const {
     return per_session_capacity_;
 }
 
-}  // namespace upf
+} // namespace upf

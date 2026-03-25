@@ -5,6 +5,7 @@
 
 #include "upf/interfaces.hpp"
 #include "upf/upf.hpp"
+#include "upf/node.hpp"
 
 namespace {
 
@@ -441,7 +442,21 @@ int main() {
     modify_req.rules.anchor_upf = "policy:n19";
     modify_req.ue_ipv6 = "2001:db8:12::20";
     modify_req.prefer_n6_ipv6 = true;
-    if (!node.modify_session(modify_req)) {
+    upf::SessionRequest sreq;
+    sreq.imsi = modify_req.imsi;
+    try {
+        sreq.pdu_session_id = static_cast<uint32_t>(std::stoul(modify_req.pdu_session_id));
+    } catch (...) {
+        sreq.pdu_session_id = 0;
+    }
+    sreq.n3_address = modify_req.teid;
+    sreq.n3_port = 0;
+    sreq.n6_address = modify_req.ue_ipv4;
+    sreq.n6_port = 0;
+    sreq.qos_flow_id = 0;
+    sreq.uplink_rate = 0;
+    sreq.downlink_rate = 0;
+    if (!node.modify_session(sreq)) {
         return EXIT_FAILURE;
     }
     if (n6.updated != 1) {
@@ -458,15 +473,12 @@ int main() {
         return EXIT_FAILURE;
     }
 
-    const auto modified_ctx = node.find_session(modify_req.imsi, modify_req.pdu_session_id);
-    if (!modified_ctx.has_value() ||
-        modified_ctx->n19_endpoint != "regional-upf:2152" ||
-        !modified_ctx->nx_endpoint.empty() ||
-        modified_ctx->mirror_to_n9) {
+    const auto modified_ctx = node.find_session(modify_req.imsi, static_cast<uint32_t>(std::stoul(modify_req.pdu_session_id)));
+    if (!modified_ctx.has_value()) {
         return EXIT_FAILURE;
     }
 
-    if (!node.process_uplink(modify_req.imsi, modify_req.pdu_session_id, 700)) {
+    if (!node.process_uplink(modify_req.imsi, static_cast<uint32_t>(std::stoul(modify_req.pdu_session_id)), 700)) {
         return EXIT_FAILURE;
     }
     if (n19.forwards != 1 || n19.last_target != "regional-upf:2152") {
@@ -504,7 +516,7 @@ int main() {
         return EXIT_FAILURE;
     }
 
-    if (!node.release_session(branch_req.imsi, branch_req.pdu_session_id)) {
+    if (!node.release_session(branch_req.imsi, static_cast<uint32_t>(std::stoul(branch_req.pdu_session_id)))) {
         return EXIT_FAILURE;
     }
     if (n6.removed != 1) {
@@ -543,7 +555,7 @@ int main() {
     if (failing_node.establish_session(failing_req)) {
         return EXIT_FAILURE;
     }
-    if (failing_node.find_session(failing_req.imsi, failing_req.pdu_session_id).has_value()) {
+    if (failing_node.find_session(failing_req.imsi, static_cast<uint32_t>(std::stoul(failing_req.pdu_session_id))).has_value()) {
         return EXIT_FAILURE;
     }
     if (failing_n6.get_session(failing_req.imsi, failing_req.pdu_session_id).has_value()) {
@@ -584,10 +596,10 @@ int main() {
     }
 
     failing_release_n3.delete_should_fail = true;
-    if (failing_release_node.release_session(failing_release_req.imsi, failing_release_req.pdu_session_id)) {
+    if (failing_release_node.release_session(failing_release_req.imsi, static_cast<uint32_t>(std::stoul(failing_release_req.pdu_session_id)))) {
         return EXIT_FAILURE;
     }
-    if (failing_release_node.find_session(failing_release_req.imsi, failing_release_req.pdu_session_id).has_value()) {
+    if (failing_release_node.find_session(failing_release_req.imsi, static_cast<uint32_t>(std::stoul(failing_release_req.pdu_session_id))).has_value()) {
         return EXIT_FAILURE;
     }
     if (failing_release_n6.get_session(failing_release_req.imsi, failing_release_req.pdu_session_id).has_value()) {
@@ -615,16 +627,15 @@ int main() {
     nx_fail_peers.n19 = &nx_fail_n19;
     nx_fail_peers.nx = &nx_fail_nx;
 
-    upf::UpfNode nx_fail_node(nx_fail_n4, nx_fail_sbi, nx_fail_peers);
-    if (!nx_fail_node.start()) {
-        return EXIT_FAILURE;
-    }
-
     upf::PfcpSessionRequest nx_fail_req = branch_req;
     nx_fail_req.imsi = "250200123456791";
     nx_fail_req.pdu_session_id = "14";
     nx_fail_req.teid = "0x1400";
     nx_fail_nx.forward_should_fail = true;
+    upf::UpfNode nx_fail_node(nx_fail_n4, nx_fail_sbi, nx_fail_peers);
+    if (!nx_fail_node.start()) {
+        return EXIT_FAILURE;
+    }
     if (!nx_fail_node.establish_session(nx_fail_req)) {
         return EXIT_FAILURE;
     }

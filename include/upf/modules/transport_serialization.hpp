@@ -28,4 +28,14 @@ std::string format_http_post_request(const std::string& host, const std::string&
 std::string format_pfcp_default_response_detail(PfcpCause cause);
 std::string format_pfcp_operation(PfcpOperation operation);
 
+
+namespace modules {
+
+class TransportSerialization {
+public:
+	static std::vector<uint8_t> serialize(const std::string& data);
+	static std::string deserialize(const std::vector<uint8_t>& data);
+};
+
+} // namespace modules
 }  // namespace upf

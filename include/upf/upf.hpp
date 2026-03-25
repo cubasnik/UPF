@@ -1,12 +1,44 @@
 #pragma once
 
-#include "upf/config/runtime_config.hpp"
 #include <string>
 #include <optional>
+#include <filesystem>
 #include <vector>
 #include <memory>
 
+#include <cstdint>
+#include "upf/interfaces.hpp"
+
 namespace upf {
+
+// Структура для конфигурации
+struct RuntimeConfig {
+    bool verbose = false;
+    std::string config_file;
+    std::string n3_interface = "eth0";
+    std::string n4_interface = "eth1";
+    std::string n6_interface = "eth2";
+    uint16_t n4_port = 8805;
+    uint16_t sbi_port = 8080;
+    size_t packet_buffer_size = 65536;
+    size_t session_table_size = 1000;
+    
+    // Дополнительные поля для совместимости
+    std::string node_id = "upf-1";
+    std::string n3_bind = "0.0.0.0:2152";
+    std::string n4_bind = "0.0.0.0:8805";
+    std::string n6_bind = "0.0.0.0:2153";
+    std::string n6_remote_host = "127.0.0.1";
+    uint16_t n6_remote_port = 30001;
+    std::string n6_default_protocol = "ipv4";
+    uint32_t n6_downlink_wait_timeout_ms = 500;
+    size_t n6_buffer_capacity = 16;
+    std::string n6_buffer_overflow_policy = "drop_oldest";
+    bool enable_n9 = false;
+    // Для тестов и cli
+    bool strict_pfcp = false;
+    uint32_t heartbeat_interval_ms = 1000;
+};
 
 // Структура для запроса сессии
 struct SessionRequest {
@@ -21,44 +53,51 @@ struct SessionRequest {
     uint64_t downlink_rate = 0;
 };
 
-// Структура для статуса UPF
-struct UpfStatusSnapshot {
-    size_t active_sessions = 0;
-    uint64_t uplink_bytes = 0;
-    uint64_t downlink_bytes = 0;
-    uint64_t total_packets = 0;
-    bool is_running = false;
-};
 
-// Основной класс UPF узла
-class UpfNode {
+// Структура для статуса UPF теперь объявляется в interfaces.hpp
+
+// Удаляем дублирующее определение UpfStatusSnapshot
+
+
+// Функции для работы с конфигом
+RuntimeConfig default_runtime_config();
+RuntimeConfig load_runtime_config(const std::string& path);
+
+} // namespace upf
+
+// Класс для управления runtime UPF
+class UpfRuntime {
 public:
-    UpfNode(const std::string& n4_address, 
-            const std::string& sbi_address,
-            const std::vector<std::string>& peer_addresses);
+    explicit UpfRuntime(const upf::RuntimeConfig& config);
+    ~UpfRuntime();
     
-    ~UpfNode();
-    
-    bool start();
-    bool stop();
-    bool is_running() const;
-    
-    // Управление сессиями
-    bool establish_session(const SessionRequest& request);
-    bool modify_session(const SessionRequest& request);
-    bool release_session(const std::string& imsi, uint32_t pdu_session_id);
-    std::optional<SessionRequest> find_session(const std::string& imsi, uint32_t pdu_session_id);
-    
-    // Обработка трафика
-    bool process_uplink(const std::string& imsi, uint32_t pdu_session_id, size_t bytes);
-    bool process_downlink(const std::string& imsi, uint32_t pdu_session_id, size_t bytes);
-    
-    // Статус и статистика
-    UpfStatusSnapshot status() const;
+    bool initialize();
+    void shutdown();
+    int run_session();
+    int run_session(bool no_wait);
+    bool is_initialized() const { return initialized_; }
     
 private:
-    struct Impl;
-    std::unique_ptr<Impl> pImpl_;
+    upf::RuntimeConfig config_;
+    bool initialized_ = false;
 };
+
+// Структура контекста вызова
+struct RuntimeInvocationContext {
+    std::string program_name;
+    std::optional<std::filesystem::path> config_path;
+    bool verbose = false;
+};
+
+// Функции
+std::optional<std::filesystem::path> resolve_config_path(
+    const std::string& program_name,
+    const std::optional<std::string>& provided_path);
+
+int run_session_once(UpfRuntime& runtime, const RuntimeInvocationContext& ctx, bool no_wait = false);
+
+
+namespace upf {
+
 
 } // namespace upf

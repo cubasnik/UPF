@@ -1,3 +1,81 @@
+# Пошаговая инструкция по запуску и управлению UPF
+
+
+### 1. Сборка и запуск
+
+Выполните в PowerShell из корня проекта:
+
+```
+./run_upf.bat
+```
+или вручную:
+```
+cmake --preset default
+cmake --build --preset default --target upf n4_mock_peer n6_traffic_tool
+```
+
+Для запуска интерактивного CLI-режима (REPL):
+```
+.\build\upf.exe --cli
+```
+
+### 2. Запуск необходимых компонентов
+
+В разных терминалах:
+
+- UPF:
+	```
+	.\build\upf.exe --config .\config\runtime_config.json
+	```
+- N4 mock peer:
+	```
+	.\build\n4_mock_peer.exe
+	```
+- (Опционально) N6 traffic tool для генерации трафика:
+	```
+	.\build\n6_traffic_tool.exe --delay-ms 200 --count 5 --interval-ms 120
+	```
+
+
+### 3. Управление UPF через REPL (интерактивный режим)
+
+После запуска .\build\upf.exe --cli вы попадёте в REPL — командную строку, где можно вводить команды для управления параметрами и конфигурацией.
+
+
+Available REPL commands:
+
+- set <key> <value> — set a configuration parameter (e.g. set n6_bind 192.168.1.10)
+- commit — apply changes (make candidate config active)
+- discard — discard unsaved changes (reset candidate to running)
+- show running — show current (active) configuration
+- show candidate — show candidate configuration
+- show running json — show current configuration in JSON format
+- show candidate json — show candidate configuration in JSON format
+- show mode — show mode (mode=operational)
+- exit or quit — exit REPL
+
+Examples:
+
+```
+set n6_bind 192.168.1.10
+commit
+show running
+discard
+show candidate json
+exit
+```
+
+### 4. Примеры для работы с конкретными сессиями
+
+```text
+session establish 250200123450001 21
+session uplink 1500 250200123450001 21
+session downlink-tool 1200 250200123450001 21
+session release 250200123450001 21
+```
+
+Больше примеров и расширенные команды — см. ниже по тексту README.
+
 # vUPF (C++): 5G User Plane Function
 
 Репозиторий реализует прототип UPF в том же стиле построения, что и проект SMF: разделение на ядро, адаптеры, runtime-конфиг, CLI и тесты.
@@ -95,7 +173,19 @@ cmake --build --preset default --target upf
 
 Preset `default` пишет все исполняемые файлы прямо в каталог `build`, а не в `build/default`.
 
-## Windows Quick Start
+## Быстрый запуск на Windows
+
+В корне проекта теперь есть скрипт для автоматической сборки и запуска UPF:
+
+```bat
+run_upf.bat
+```
+
+Скрипт выполнит сборку и запустит upf.exe с конфигом config/runtime_config.json, если он существует, либо с настройками по умолчанию.
+
+---
+
+Для ручного запуска используйте:
 
 ```powershell
 cd C:\Users\Alexey\Desktop\min\vNE\vUPF\UPF
@@ -103,20 +193,22 @@ cmake --preset default
 cmake --build --preset default --target upf n4_mock_peer n6_traffic_tool
 ```
 
-Терминал 1:
+Запуск UPF:
 
+```powershell
+.\build\upf.exe --config .\config\runtime_config.json
+```
+или, если конфиг не нужен:
+```powershell
+.\build\upf.exe
+```
+
+Запуск n4_mock_peer (отдельный терминал):
 ```powershell
 .\build\n4_mock_peer.exe
 ```
 
-Терминал 2:
-
-```powershell
-.\build\upf.exe --interactive
-```
-
-Терминал 3, для реального N6 downlink в PR-2.2 сценарии:
-
+Для реального N6 downlink в PR-2.2 сценарии (отдельный терминал):
 ```powershell
 .\build\n6_traffic_tool.exe --delay-ms 200 --count 5 --interval-ms 120
 ```

@@ -1,12 +1,26 @@
+    constexpr const char* color_ok = "\033[32m";    // green
+    constexpr const char* color_err = "\033[31m";   // red
+    constexpr const char* color_cmd = "\033[32m";   // green (help)
+    constexpr const char* color_desc = "\033[0m";   // white/default (help)
+    constexpr const char* color_key = "\033[33m";   // yellow (show)
+    constexpr const char* color_val = "\033[0m";    // white/default (show)
+    constexpr const char* color_reset = "\033[0m";
 #include "upf/cli.hpp"
 #include "upf/modules/observability.hpp"
+
+namespace upf {
+// Минимальная заглушка Impl для UpfCli
+struct UpfCli::Impl {};
+
+// ... rest of the file ...
+
 
 #include <limits>
 #include <optional>
 #include <sstream>
 #include <string>
 
-namespace upf {
+
 
 namespace {
 
@@ -49,13 +63,39 @@ bool is_valid_n6_buffer_policy(const std::string& value) {
 
 }  // namespace
 
-UpfCli::UpfCli(RuntimeConfig base, const IUpfNode* live_node)
-    : running_(std::move(base)), candidate_(running_), live_node_(live_node) {}
+
+UpfCli::UpfCli(const RuntimeConfig& config)
+    : running_(config), candidate_(running_), live_node_(nullptr) {}
+
+UpfCli::UpfCli(const RuntimeConfig& config, UpfNode* node)
+    : running_(config), candidate_(running_), live_node_(node) {}
 
 std::string UpfCli::execute(const std::string& command_line) {
+
     std::istringstream stream(command_line);
     std::string command;
     stream >> command;
+
+    if (command.empty()) {
+        return "";
+    }
+    if (command == "help") {
+        constexpr const char* cmd_color = "\033[32m"; // green
+        constexpr const char* desc_color = "\033[0m"; // white/default
+        std::ostringstream oss;
+        oss << "Available commands:\n";
+        oss << "  " << cmd_color << "set <key> <value>" << desc_color << "      Set a configuration parameter\n";
+        oss << "  " << cmd_color << "commit" << desc_color << "                 Apply changes (make candidate config active)\n";
+        oss << "  " << cmd_color << "discard" << desc_color << "                Discard unsaved changes (reset candidate to running)\n";
+        oss << "  " << cmd_color << "show running" << desc_color << "           Show current (active) configuration\n";
+        oss << "  " << cmd_color << "show candidate" << desc_color << "         Show candidate configuration\n";
+        oss << "  " << cmd_color << "show running json" << desc_color << "      Show current configuration in JSON format\n";
+        oss << "  " << cmd_color << "show candidate json" << desc_color << "    Show candidate configuration in JSON format\n";
+        oss << "  " << cmd_color << "show mode" << desc_color << "              Show mode (mode=operational)\n";
+        oss << "  " << cmd_color << "exit, quit" << desc_color << "             Exit REPL\n";
+        oss << "  " << cmd_color << "help" << desc_color << "                   Show this help message";
+        return oss.str();
+    }
 
     if (command == "set") {
         std::string key;
@@ -63,22 +103,22 @@ std::string UpfCli::execute(const std::string& command_line) {
         std::string error;
         stream >> key >> value;
         if (key.empty() || value.empty()) {
-            return "ERR: usage set <key> <value>";
+            return std::string(color_err) + "ERR: usage set <key> <value>" + color_reset;
         }
         if (set_value(key, value, &error)) {
-            return "OK";
+            return std::string(color_ok) + "OK" + color_reset;
         }
-        return error.empty() ? "ERR: unknown key" : error;
+        return std::string(color_err) + (error.empty() ? "ERR: unknown key" : error) + color_reset;
     }
 
     if (command == "commit") {
         running_ = candidate_;
-        return "OK";
+        return std::string(color_ok) + "OK" + color_reset;
     }
 
     if (command == "discard") {
         candidate_ = running_;
-        return "OK";
+        return std::string(color_ok) + "OK" + color_reset;
     }
 
     if (command == "show") {
@@ -87,10 +127,38 @@ std::string UpfCli::execute(const std::string& command_line) {
         stream >> what;
         stream >> format;
         if (what == "running") {
-            return format == "json" ? format_runtime_config_json(running_) : format_runtime_config_text(running_);
+            if (format == "json") {
+                return format_runtime_config_json(running_);
+            } else {
+                std::ostringstream oss;
+                oss << color_key << "node_id" << color_val << " = " << running_.node_id << "\n";
+                oss << color_key << "n3" << color_val << " = " << running_.n3_bind << "\n";
+                oss << color_key << "n4" << color_val << " = " << running_.n4_bind << "\n";
+                oss << color_key << "n6" << color_val << " = " << running_.n6_bind << "\n";
+                oss << color_key << "n6_remote" << color_val << " = " << running_.n6_remote_host << ":" << running_.n6_remote_port << "\n";
+                oss << color_key << "n6_protocol" << color_val << " = " << running_.n6_default_protocol << "\n";
+                oss << color_key << "n6_downlink_wait_ms" << color_val << " = " << running_.n6_downlink_wait_timeout_ms << "\n";
+                oss << color_key << "n6_buffer_capacity" << color_val << " = " << running_.n6_buffer_capacity << "\n";
+                oss << color_key << "n6_buffer_policy" << color_val << " = " << running_.n6_buffer_overflow_policy << "\n";
+                return oss.str();
+            }
         }
         if (what == "candidate") {
-            return format == "json" ? format_runtime_config_json(candidate_) : format_runtime_config_text(candidate_);
+            if (format == "json") {
+                return upf::format_runtime_config_json(candidate_);
+            } else {
+                std::ostringstream oss;
+                oss << color_key << "node_id" << color_val << " = " << candidate_.node_id << "\n";
+                oss << color_key << "n3" << color_val << " = " << candidate_.n3_bind << "\n";
+                oss << color_key << "n4" << color_val << " = " << candidate_.n4_bind << "\n";
+                oss << color_key << "n6" << color_val << " = " << candidate_.n6_bind << "\n";
+                oss << color_key << "n6_remote" << color_val << " = " << candidate_.n6_remote_host << ":" << candidate_.n6_remote_port << "\n";
+                oss << color_key << "n6_protocol" << color_val << " = " << candidate_.n6_default_protocol << "\n";
+                oss << color_key << "n6_downlink_wait_ms" << color_val << " = " << candidate_.n6_downlink_wait_timeout_ms << "\n";
+                oss << color_key << "n6_buffer_capacity" << color_val << " = " << candidate_.n6_buffer_capacity << "\n";
+                oss << color_key << "n6_buffer_policy" << color_val << " = " << candidate_.n6_buffer_overflow_policy << "\n";
+                return oss.str();
+            }
         }
         if (what == "mode") {
             return "mode=operational";
@@ -99,7 +167,7 @@ std::string UpfCli::execute(const std::string& command_line) {
             if (live_node_ == nullptr) {
                 return "ERR: live status unavailable";
             }
-            return format == "json" ? format_upf_status_json(live_node_->status()) : format_upf_status_text(live_node_->status());
+            return format == "json" ? upf::format_upf_status_json(live_node_->status()) : upf::format_upf_status_text(live_node_->status());
         }
         if (what == "n6-buffer") {
             const std::string scope = format;
@@ -116,7 +184,7 @@ std::string UpfCli::execute(const std::string& command_line) {
                 if (!session.has_value()) {
                     return "ERR: session unavailable";
                 }
-                return session_format == "json" ? format_n6_session_json(*session) : format_n6_session_text(*session);
+                return session_format == "json" ? upf::format_n6_session_json(*session) : upf::format_n6_session_text(*session);
             }
             if (live_node_ == nullptr) {
                 return "ERR: live status unavailable";
@@ -127,10 +195,10 @@ std::string UpfCli::execute(const std::string& command_line) {
             }
             return format == "json" ? format_n6_buffer_status_json(*snapshot.n6_buffer) : format_n6_buffer_status_text(*snapshot.n6_buffer);
         }
-        return "ERR: unknown show";
+        return std::string(color_err) + "ERR: unknown show" + color_reset;
     }
 
-    return "ERR: unknown command";
+    return std::string(color_err) + "ERR: unknown command" + color_reset;
 }
 
 const RuntimeConfig& UpfCli::running() const {

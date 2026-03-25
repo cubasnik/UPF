@@ -1,49 +1,72 @@
 #include "upf/modules/session_table.hpp"
+#include <sstream>
+#include <mutex>
 
 namespace upf {
+namespace modules {
 
-bool SessionTable::create(const SessionContext& context) {
-    const std::string key = key_of(context.imsi, context.pdu_session_id);
-    return sessions_.emplace(key, context).second;
+SessionTable::SessionTable(size_t max_sessions) : max_sessions_(max_sessions) {
 }
 
-bool SessionTable::modify(const SessionContext& context) {
-    const std::string key = key_of(context.imsi, context.pdu_session_id);
-    auto it = sessions_.find(key);
-    if (it == sessions_.end()) {
+SessionTable::~SessionTable() = default;
+
+std::string SessionTable::make_key(const std::string& imsi, uint32_t pdu_session_id) const {
+    return imsi + ":" + std::to_string(pdu_session_id);
+}
+
+bool SessionTable::add_session(const SessionInfo& info) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    
+    std::string key = make_key(info.imsi, info.pdu_session_id);
+    
+    if (sessions_.size() >= max_sessions_) {
         return false;
     }
-    it->second = context;
+    
+    if (sessions_.find(key) != sessions_.end()) {
+        return false;
+    }
+    
+    sessions_[key] = info;
     return true;
 }
 
-bool SessionTable::remove(const std::string& imsi, const std::string& pdu_session_id) {
-    return sessions_.erase(key_of(imsi, pdu_session_id)) > 0;
-}
-
-std::optional<SessionContext> SessionTable::find(const std::string& imsi, const std::string& pdu_session_id) const {
-    const auto it = sessions_.find(key_of(imsi, pdu_session_id));
+bool SessionTable::remove_session(const std::string& imsi, uint32_t pdu_session_id) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    
+    std::string key = make_key(imsi, pdu_session_id);
+    auto it = sessions_.find(key);
+    
     if (it == sessions_.end()) {
-        return std::nullopt;
+        return false;
     }
-    return it->second;
+    
+    sessions_.erase(it);
+    return true;
 }
 
-std::vector<SessionContext> SessionTable::list() const {
-    std::vector<SessionContext> items;
-    items.reserve(sessions_.size());
-    for (const auto& kv : sessions_) {
-        items.push_back(kv.second);
+std::optional<SessionInfo> SessionTable::find_session(const std::string& imsi, uint32_t pdu_session_id) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    
+    std::string key = make_key(imsi, pdu_session_id);
+    auto it = sessions_.find(key);
+    
+    if (it != sessions_.end()) {
+        return it->second;
     }
-    return items;
+    
+    return std::nullopt;
 }
 
-std::size_t SessionTable::size() const {
+size_t SessionTable::size() const {
+    std::lock_guard<std::mutex> lock(mutex_);
     return sessions_.size();
 }
 
-std::string SessionTable::key_of(const std::string& imsi, const std::string& pdu_session_id) {
-    return imsi + "|" + pdu_session_id;
+void SessionTable::clear() {
+    std::lock_guard<std::mutex> lock(mutex_);
+    sessions_.clear();
 }
 
-}  // namespace upf
+} // namespace modules
+} // namespace upf

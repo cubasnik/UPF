@@ -1,6 +1,13 @@
 #include "upf/upf.hpp"
 #include "upf/modules/observability.hpp"
+#include "upf/cli.hpp"
+#include "upf/node.hpp"
 #include <iostream>
+#include <clocale>
+#if defined(_WIN32)
+#include <windows.h>
+#endif
+#include <clocale>
 #include <iomanip>
 #include <chrono>
 #include <sstream>
@@ -8,6 +15,7 @@
 #include <string>
 #include <optional>
 #include <filesystem>
+
 
 // Вспомогательная функция для временных меток
 std::string get_timestamp() {
@@ -18,9 +26,15 @@ std::string get_timestamp() {
     return ss.str();
 }
 
-#define LOG_INFO(msg)   std::cout << "[" << get_timestamp() << "] [INFO]  " << msg << std::endl
-#define LOG_DEBUG(msg)  std::cout << "[" << get_timestamp() << "] [DEBUG] " << msg << std::endl
-#define LOG_ERROR(msg)  std::cerr << "[" << get_timestamp() << "] [ERROR] " << msg << std::endl
+
+constexpr const char* COLOR_INFO = "\033[34m";   // blue
+constexpr const char* COLOR_DEBUG = "\033[32m";  // green
+constexpr const char* COLOR_ERROR = "\033[31m";  // red
+constexpr const char* COLOR_RESET = "\033[0m";
+
+#define LOG_INFO(msg)   std::cout << COLOR_INFO << "[" << get_timestamp() << "] [INFO]  " << msg << COLOR_RESET << std::endl
+#define LOG_DEBUG(msg)  std::cout << COLOR_DEBUG << "[" << get_timestamp() << "] [DEBUG] " << msg << COLOR_RESET << std::endl
+#define LOG_ERROR(msg)  std::cerr << COLOR_ERROR << "[" << get_timestamp() << "] [ERROR] " << msg << COLOR_RESET << std::endl
 
 // ===== PRINT HELP =====
 void print_help(const std::string& program_name) {
@@ -44,6 +58,11 @@ void print_help(const std::string& program_name) {
 
 // ===== MAIN =====
 int main(int argc, char* argv[]) {
+    // Установка локали и кодовой страницы для корректного вывода UTF-8 в консоль
+    std::setlocale(LC_ALL, "");
+#if defined(_WIN32)
+    SetConsoleOutputCP(CP_UTF8);
+#endif
     std::cout << "=====================================\n";
     std::cout << "vUPF - Virtual User Plane Function\n";
     std::cout << "Version: 0.1 (debug build)\n";
@@ -56,9 +75,13 @@ int main(int argc, char* argv[]) {
 
     std::string program_name = argv[0];
 
+
     std::optional<std::string> config_path;
+
     bool verbose = false;
     bool show_help = false;
+    bool no_wait = false;
+    bool cli_mode = false;
 
     // Парсинг аргументов
     for (int i = 1; i < argc; ++i) {
@@ -72,6 +95,12 @@ int main(int argc, char* argv[]) {
         }
         else if (arg == "--verbose" || arg == "-v") {
             verbose = true;
+        }
+        else if (arg == "--no-wait") {
+            no_wait = true;
+        }
+        else if (arg == "--cli") {
+            cli_mode = true;
         }
         else {
             LOG_ERROR("Unknown argument: " + arg);
@@ -120,21 +149,37 @@ int main(int argc, char* argv[]) {
         cfg.verbose = true;
     }
 
-    // Создаём runtime
-    UpfRuntime runtime(cfg);
+    if (cli_mode) {
+        LOG_INFO("Starting interactive CLI mode (REPL)...");
+        upf::UpfCli cli(cfg);
+        std::string line;
+        std::cout << "vUPF CLI (REPL) mode. Type a command or 'exit' to quit." << std::endl;
+        while (true) {
+            std::cout << "> ";
+            if (!std::getline(std::cin, line)) break;
+            if (line == "exit" || line == "quit") break;
+            std::string result = cli.execute(line);
+            std::cout << result << std::endl;
+        }
+        LOG_INFO("CLI mode finished.");
+        return 0;
+    } else {
+        // Создаём runtime
+        UpfRuntime runtime(cfg);
 
-    RuntimeInvocationContext ctx{
-        program_name,
-        resolved,
-        verbose
-    };
+        RuntimeInvocationContext ctx{
+            program_name,
+            resolved,
+            verbose
+        };
 
-    LOG_INFO("Starting session processing...");
+        LOG_INFO("Starting session processing...");
 
-    // Запуск основной логики
-    int exit_code = run_session_once(runtime, ctx);
+        // Запуск основной логики
+        int exit_code = run_session_once(runtime, ctx, no_wait);
 
-    LOG_INFO("vUPF session completed. Exit code: " + std::to_string(exit_code));
+        LOG_INFO("vUPF session completed. Exit code: " + std::to_string(exit_code));
 
-    return exit_code;
+        return exit_code;
+    }
 }
