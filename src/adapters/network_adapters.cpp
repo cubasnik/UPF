@@ -1165,10 +1165,26 @@ bool NetworkN4Adapter::ensure_association() {
         sequence = next_pfcp_sequence(&sequence_counter_);
     }
 
-    const auto response_text = send_udp_request(encode_association_setup_request_message(local_node_id_,
-                                                                                         local_fseid_ipv4_,
-                                                                                         recovery_time_stamp_,
-                                                                                         sequence),
+    // Выводим параметры AssociationSetupRequest перед отправкой
+    std::cout << "[PFCP] AssociationSetupRequest params:" << std::endl;
+    std::cout << "  local_node_id: " << local_node_id_ << std::endl;
+    std::cout << "  local_fseid_ipv4: " << local_fseid_ipv4_ << std::endl;
+    std::cout << "  recovery_time_stamp: " << recovery_time_stamp_ << std::endl;
+    std::cout << "  sequence: " << sequence << std::endl;
+
+    auto cap_msg = encode_capability_exchange_request_message(local_node_id_,
+                                                             local_fseid_ipv4_,
+                                                             0x0000000FU,
+                                                             sequence);
+    std::cout << "[PFCP] CapabilityExchangeRequest params:" << std::endl;
+    std::cout << "  local_node_id: " << local_node_id_ << std::endl;
+    std::cout << "  local_fseid_ipv4: " << local_fseid_ipv4_ << std::endl;
+    std::cout << "  up_function_features: 0x0000000F" << std::endl;
+    std::cout << "  sequence: " << sequence << std::endl;
+    std::cout << "[PFCP] CapabilityExchangeRequest (hex): ";
+    for (unsigned char c : cap_msg) std::cout << std::hex << (int)c << " ";
+    std::cout << std::dec << std::endl;
+    const auto response_text = send_udp_request(cap_msg,
                                                 timeout_ms_,
                                                 1);
     if (!response_text.has_value()) {
@@ -1267,9 +1283,17 @@ bool NetworkN4Adapter::ensure_node_features() {
         sequence = next_pfcp_sequence(&sequence_counter_);
     }
 
-    const auto response_text = send_udp_request(encode_node_features_request_message(local_node_id_,
-                                                                                      0x00000007U,
-                                                                                      sequence),
+    auto nf_msg = encode_node_features_request_message(local_node_id_,
+                                                      0x00000007U,
+                                                      sequence);
+    std::cout << "[PFCP] NodeFeaturesRequest params:" << std::endl;
+    std::cout << "  local_node_id: " << local_node_id_ << std::endl;
+    std::cout << "  up_function_features: 0x00000007" << std::endl;
+    std::cout << "  sequence: " << sequence << std::endl;
+    std::cout << "[PFCP] NodeFeaturesRequest (hex): ";
+    for (unsigned char c : nf_msg) std::cout << std::hex << (int)c << " ";
+    std::cout << std::dec << std::endl;
+    const auto response_text = send_udp_request(nf_msg,
                                                 timeout_ms_,
                                                 1);
     if (!response_text.has_value()) {

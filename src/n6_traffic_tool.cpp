@@ -8,10 +8,42 @@
 #include <optional>
 #include <sstream>
 #include <string>
+
 #include <thread>
 #include <vector>
 #include "upf/config/runtime_config.hpp"
 #include "upf/upf.hpp"
+
+#if defined(_WIN32)
+#include <windows.h>
+#endif
+
+// Цветовые макросы для разных типов сообщений
+#if defined(_WIN32)
+inline void set_console_color(WORD color) {
+    HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
+    SetConsoleTextAttribute(hConsole, color);
+}
+#define COLOR_CONFIG 11  // cyan
+#define COLOR_START  14  // yellow
+#define COLOR_INFO   9   // blue
+#define COLOR_SENT   10  // green
+#define COLOR_FINISH 13  // magenta
+#define COLOR_ERROR  12  // red
+#define COLOR_RESET  7   // default
+#define PRINT_COLOR(type, msg) do { set_console_color(type); std::cout << msg << std::endl; set_console_color(COLOR_RESET); } while(0)
+#define PRINT_COLOR_ERR(type, msg) do { set_console_color(type); std::cerr << msg << std::endl; set_console_color(COLOR_RESET); } while(0)
+#else
+#define COLOR_CONFIG "\033[36m"
+#define COLOR_START  "\033[33m"
+#define COLOR_INFO   "\033[34m"
+#define COLOR_SENT   "\033[32m"
+#define COLOR_FINISH "\033[35m"
+#define COLOR_ERROR  "\033[31m"
+#define COLOR_RESET  "\033[0m"
+#define PRINT_COLOR(type, msg) std::cout << type << msg << COLOR_RESET << std::endl
+#define PRINT_COLOR_ERR(type, msg) std::cerr << type << msg << COLOR_RESET << std::endl
+#endif
 
 #if defined(_WIN32)
 #include <winsock2.h>
@@ -202,9 +234,9 @@ std::optional<std::filesystem::path> resolve_config_path(const std::string& argv
 } // anonymous namespace
 
 int main(int argc, char** argv) {
-    std::cout << "=====================================\n";
-    std::cout << "N6 Traffic Tool - vUPF test utility\n";
-    std::cout << "=====================================\n\n";
+    PRINT_COLOR(COLOR_CONFIG, "=====================================");
+    PRINT_COLOR(COLOR_CONFIG, "N6 Traffic Tool - vUPF test utility");
+    PRINT_COLOR(COLOR_CONFIG, "=====================================\n");
 
     std::optional<std::string> config_path;
     std::string endpoint;
@@ -294,17 +326,17 @@ int main(int argc, char** argv) {
     source = source.empty() ? default_source_for_protocol(norm_protocol) : source;
     destination = destination.empty() ? default_destination_for_protocol(norm_protocol) : destination;
 
-    std::cout << "[START] Sending " << count << " packet(s) to " << endpoint << "\n";
-    std::cout << "  Protocol : " << norm_protocol << "\n";
-    std::cout << "  IMSI     : " << imsi << "\n";
-    std::cout << "  PDU ID   : " << pdu_session_id << "\n";
-    std::cout << "  DNN      : " << dnn << "\n";
-    std::cout << "  Payload  : " << payload_bytes << " bytes\n";
-    std::cout << "  Source   : " << source << "\n";
-    std::cout << "  Dest     : " << destination << "\n";
+    PRINT_COLOR(COLOR_START, std::string("[START] Sending ") + std::to_string(count) + " packet(s) to " + endpoint);
+    PRINT_COLOR(COLOR_CONFIG, "  Protocol : " + norm_protocol);
+    PRINT_COLOR(COLOR_CONFIG, "  IMSI     : " + imsi);
+    PRINT_COLOR(COLOR_CONFIG, "  PDU ID   : " + pdu_session_id);
+    PRINT_COLOR(COLOR_CONFIG, "  DNN      : " + dnn);
+    PRINT_COLOR(COLOR_CONFIG, "  Payload  : " + std::to_string(payload_bytes) + " bytes");
+    PRINT_COLOR(COLOR_CONFIG, "  Source   : " + source);
+    PRINT_COLOR(COLOR_CONFIG, "  Dest     : " + destination);
 
     if (delay_ms > 0) {
-        std::cout << "[INFO] Initial delay: " << delay_ms << " ms\n";
+        PRINT_COLOR(COLOR_INFO, std::string("[INFO] Initial delay: ") + std::to_string(delay_ms) + " ms");
         std::this_thread::sleep_for(std::chrono::milliseconds(delay_ms));
     }
 
@@ -313,17 +345,17 @@ int main(int argc, char** argv) {
                                                   payload_bytes, source, destination);
 
         if (!send_payload_to_endpoint(endpoint, payload)) {
-            std::cerr << "[ERROR] Failed to send packet #" << (i+1) << "\n";
+            PRINT_COLOR_ERR(COLOR_ERROR, std::string("[ERROR] Failed to send packet #") + std::to_string(i+1));
             return EXIT_FAILURE;
         }
 
-        std::cout << "[SENT] Packet #" << (i+1) << " (" << payload_bytes << " bytes)\n";
+        PRINT_COLOR(COLOR_SENT, std::string("[SENT] Packet #") + std::to_string(i+1) + " (" + std::to_string(payload_bytes) + " bytes)");
 
         if (i + 1 < count && interval_ms > 0) {
             std::this_thread::sleep_for(std::chrono::milliseconds(interval_ms));
         }
     }
 
-    std::cout << "[FINISH] All packets sent successfully\n";
+    PRINT_COLOR(COLOR_FINISH, "[FINISH] All packets sent successfully");
     return EXIT_SUCCESS;
 }

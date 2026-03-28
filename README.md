@@ -1,21 +1,84 @@
-# Пошаговая инструкция по запуску и управлению UPF
+# Быстрый старт
 
+## Режимы запуска UPF и доступность REPL
+
+| Режим запуска         | Аргумент                | REPL (интерактив) | Можно вводить session-команды? | Описание |
+|----------------------|-------------------------|-------------------|-------------------------------|----------|
+| Обычный (демон)      | --config или без аргум. | Нет               | Нет                           | Загружает конфиг, работает как сервис, команды не принимает |
+| CLI/REPL             | --cli или --interactive | Да                | Да                            | Вход в REPL, можно вводить команды управления и сессий |
+
+**Важно:** Только в режиме CLI/REPL (`--cli` или `--interactive`) можно вручную инициировать PFCP-сессии и видеть их в логах. В обычном режиме (`--config`) UPF работает как сервис и не принимает команды сессий.
+1. **Соберите проект**
+
+Откройте PowerShell в корне проекта и выполните:
+
+```powershell
+./run_upf.bat
+```
+
+или вручную:
+
+```powershell
+cmake --preset default
+cmake --build --preset default --target upf n4_mock_peer n6_traffic_tool
+```
+
+2. **Запустите основные компоненты**
+
+В отдельных терминалах:
+
+- UPF:
+
+    ```powershell
+    .\build\upf.exe --config .\config\runtime_config.json
+    ```
+
+- N4 mock peer:
+
+    ```powershell
+    .\build\n4_mock_peer.exe
+    ```
+
+- (Опционально) N6 traffic tool:
+
+    ```powershell
+    .\build\n6_traffic_tool.exe --delay-ms 200 --count 5 --interval-ms 120
+    ```
+
+3. **(Опционально) Управление через CLI**
+
+Для интерактивного управления:
+
+
+```powershell
+.\build\upf.exe --cli
+```
+
+Введите команды REPL для настройки и управления.
+
+## Пошаговая инструкция по запуску и управлению UPF
 
 ### 1. Сборка и запуск
 
 Выполните в PowerShell из корня проекта:
 
-```
+
+```powershell
 ./run_upf.bat
 ```
+
 или вручную:
-```
+
+
+```powershell
 cmake --preset default
 cmake --build --preset default --target upf n4_mock_peer n6_traffic_tool
 ```
 
 Для запуска интерактивного CLI-режима (REPL):
-```
+
+
+```powershell
 .\build\upf.exe --cli
 ```
 
@@ -24,46 +87,66 @@ cmake --build --preset default --target upf n4_mock_peer n6_traffic_tool
 В разных терминалах:
 
 - UPF:
-	```
-	.\build\upf.exe --config .\config\runtime_config.json
-	```
+
+    ```powershell
+    .\build\upf.exe --config .\config\runtime_config.json
+    ```
+
 - N4 mock peer:
-	```
-	.\build\n4_mock_peer.exe
-	```
+
+    ```powershell
+    .\build\n4_mock_peer.exe
+    ```
+
 - (Опционально) N6 traffic tool для генерации трафика:
-	```
-	.\build\n6_traffic_tool.exe --delay-ms 200 --count 5 --interval-ms 120
-	```
+
+    ```powershell
+    .\build\n6_traffic_tool.exe --delay-ms 200 --count 5 --interval-ms 120
+    ```
 
 
 ### 3. Управление UPF через REPL (интерактивный режим)
 
 После запуска .\build\upf.exe --cli вы попадёте в REPL — командную строку, где можно вводить команды для управления параметрами и конфигурацией.
 
+Доступные REPL-команды:
 
-Available REPL commands:
+- set key value — задать параметр конфигурации (например, set n6_bind 192.168.1.10)
+- commit — применить изменения (сделать candidate config активной)
+- discard — отменить несохранённые изменения (сбросить candidate к running)
+- show running — показать текущую (активную) конфигурацию
+- show candidate — показать candidate-конфигурацию
+- show running json — показать текущую конфигурацию в формате JSON
+- show candidate json — показать candidate-конфигурацию в формате JSON
+- show mode — показать режим (mode=operational)
+- save [file] или write [file] — сохранить текущую running-конфигурацию в файл (по умолчанию runtime_config.json)
+- exit или quit — выйти из REPL
+- help — показать справку
 
-- set <key> <value> — set a configuration parameter (e.g. set n6_bind 192.168.1.10)
-- commit — apply changes (make candidate config active)
-- discard — discard unsaved changes (reset candidate to running)
-- show running — show current (active) configuration
-- show candidate — show candidate configuration
-- show running json — show current configuration in JSON format
-- show candidate json — show candidate configuration in JSON format
-- show mode — show mode (mode=operational)
-- exit or quit — exit REPL
 
-Examples:
+Примеры:
 
-```
+```repl
 set n6_bind 192.168.1.10
 commit
 show running
-discard
-show candidate json
+save
+save my_config.json
 exit
 ```
+
+
+После выполнения save или write параметры сохраняются в runtime_config.json (или указанный файл). При следующем запуске UPF автоматически загрузит этот файл, если он существует.
+
+
+**Рекомендации по автозагрузке:**
+- При запуске UPF ищите runtime_config.json или runtime_config.yaml в корне и папке config/.
+- Для явного указания конфига используйте аргумент:
+    ```powershell
+    .\build\upf.exe --config my_config.json
+    ```
+- Если файл не найден — используются значения по умолчанию.
+
 
 ### 4. Примеры для работы с конкретными сессиями
 
@@ -75,6 +158,32 @@ session release 250200123450001 21
 ```
 
 Больше примеров и расширенные команды — см. ниже по тексту README.
+
+---
+
+## PFCP/Session-команды в REPL: что происходит
+
+- `session establish [imsi] [pdu]` — инициирует PFCP AssociationSetupRequest и SessionEstablishmentRequest к N4 peer (создаёт ассоциацию и сессию).
+- `session modify [imsi] [pdu]` — отправляет PFCP SessionModificationRequest (модификация параметров сессии).
+- `session release [imsi] [pdu]` — отправляет PFCP SessionReleaseRequest (удаление сессии).
+- `session uplink [bytes] [imsi] [pdu]` — эмулирует uplink-трафик, вызывает PFCP UsageReport (отчёт по трафику).
+- `session downlink-tool [bytes] [imsi] [pdu]` — запускает n6_traffic_tool и эмулирует downlink-трафик для сессии (PFCP UsageReport).
+- `session full-tool [bytes] [imsi] [pdu]` — эмулирует полный сценарий: uplink и downlink подряд для указанной сессии (PFCP UsageReport).
+
+**Пример PFCP-сценария:**
+1. В одном терминале: `./build/n4_mock_peer.exe`
+2. В другом: `./build/upf.exe --cli`
+3. В REPL:
+    ```
+    session establish 250200123450001 21
+    session modify 250200123450001 21
+    session uplink 1500 250200123450001 21
+    session downlink-tool 1200 250200123450001 21
+    session full-tool 1200 250200123450001 21
+    session release 250200123450001 21
+    ```
+
+В логах UPF будут видны все исходящие PFCP-запросы и ответы.
 
 # vUPF (C++): 5G User Plane Function
 
@@ -513,3 +622,39 @@ cmake --build --preset default --target n6_traffic_tool
 ```
 
 По умолчанию tool ищет `config/upf-config.yaml` как из корня репозитория, так и из каталога `build`, шлёт пакет в `n6_bind` и использует session-значения той же PDU-сессии, что и `upf`. При необходимости можно переопределить `--endpoint`, `--imsi`, `--pdu`, `--protocol`, `--src`, `--dst`, `--bytes`, `--count` и `--interval-ms`.
+
+---
+
+## Использование n4_mock_peer.exe (эмулятор SMF/peer для тестирования PFCP)
+
+`n4_mock_peer.exe` — это утилита для эмуляции PFCP peer (обычно SMF) для тестирования UPF.
+
+- **Запуск:**
+    ```powershell
+    .\build\n4_mock_peer.exe [--port <порт>]
+    ```
+    По умолчанию слушает UDP-порт 8805 на 127.0.0.1.
+
+- **Взаимодействие:**
+    - Не принимает интерактивные команды через stdin/stdout.
+    - Всё управление происходит через PFCP-сообщения по UDP (от UPF или тестовых скриптов).
+    - Поддерживаемые типы PFCP-запросов:
+        - AssociationSetupRequest
+        - CapabilityExchangeRequest
+        - NodeFeaturesRequest
+        - HeartbeatRequest
+        - SessionEstablishmentRequest
+        - SessionModificationRequest
+        - SessionDeletionRequest
+    - Для ручного тестирования используйте UPF или отдельный PFCP-клиент, который отправляет соответствующие сообщения на порт mock peer.
+
+- **Пример запуска:**
+    ```powershell
+    .\build\n4_mock_peer.exe --port 8805
+    ```
+
+- **Назначение:**
+    - Используется для автоматических и ручных тестов взаимодействия UPF с SMF/peer по протоколу PFCP.
+    - Все ответы формируются автоматически по типу запроса.
+
+---

@@ -27,9 +27,15 @@ std::string get_timestamp() {
 }
 
 
+
 constexpr const char* COLOR_INFO = "\033[34m";   // blue
 constexpr const char* COLOR_DEBUG = "\033[32m";  // green
 constexpr const char* COLOR_ERROR = "\033[31m";  // red
+constexpr const char* COLOR_CYAN = "\033[36m";   // cyan
+constexpr const char* COLOR_BOLD = "\033[1m";    // bold
+constexpr const char* COLOR_YELLOW = "\033[33m"; // yellow
+constexpr const char* COLOR_MAGENTA = "\033[35m"; // magenta
+constexpr const char* COLOR_GREEN = "\033[92m";   // bright green
 constexpr const char* COLOR_RESET = "\033[0m";
 
 #define LOG_INFO(msg)   std::cout << COLOR_INFO << "[" << get_timestamp() << "] [INFO]  " << msg << COLOR_RESET << std::endl
@@ -38,10 +44,10 @@ constexpr const char* COLOR_RESET = "\033[0m";
 
 // ===== PRINT HELP =====
 void print_help(const std::string& program_name) {
-    std::cout << "\n=====================================\n";
+    std::cout << "\n" << COLOR_CYAN << COLOR_BOLD << "=====================================\n";
     std::cout << "vUPF - Virtual User Plane Function\n";
     std::cout << "Version: 0.1 (debug build)\n";
-    std::cout << "=====================================\n\n";
+    std::cout << "=====================================" << COLOR_RESET << "\n\n";
     std::cout << "Usage: " << program_name << " [options]\n\n";
     std::cout << "Options:\n";
     std::cout << "  --help              Show this help message\n";
@@ -63,10 +69,10 @@ int main(int argc, char* argv[]) {
 #if defined(_WIN32)
     SetConsoleOutputCP(CP_UTF8);
 #endif
-    std::cout << "=====================================\n";
+    std::cout << COLOR_CYAN << COLOR_BOLD << "=====================================\n";
     std::cout << "vUPF - Virtual User Plane Function\n";
     std::cout << "Version: 0.1 (debug build)\n";
-    std::cout << "=====================================\n\n";
+    std::cout << "=====================================" << COLOR_RESET << "\n\n";
 
     if (argc < 1) {
         LOG_ERROR("No program name provided");
@@ -124,10 +130,11 @@ int main(int argc, char* argv[]) {
 
     upf::RuntimeConfig cfg;
     if (resolved) {
-        LOG_INFO("Successfully resolved config path: " + resolved->string());
+        LOG_INFO(std::string(COLOR_GREEN) + "Successfully resolved config path: " + resolved->string() + COLOR_RESET);
         try {
             cfg = upf::load_runtime_config(resolved->string());
-            LOG_INFO("Runtime config loaded successfully");
+            LOG_INFO(std::string(COLOR_GREEN) + "Runtime config loaded successfully" + COLOR_RESET);
+            LOG_INFO(std::string(COLOR_GREEN) + "JSON config loaded successfully" + COLOR_RESET);
             if (verbose) {
                 LOG_DEBUG("N3 interface: " + cfg.n3_interface);
                 LOG_DEBUG("N4 interface: " + cfg.n4_interface);
@@ -150,17 +157,57 @@ int main(int argc, char* argv[]) {
     }
 
     if (cli_mode) {
-        LOG_INFO("Starting interactive CLI mode (REPL)...");
-        upf::UpfCli cli(cfg);
+        LOG_INFO(std::string(COLOR_CYAN) + "Starting interactive CLI mode (REPL)..." + COLOR_RESET);
+        // Construct UpfNode with config values
+        std::vector<std::string> peer_addresses; // Add logic if you want to support peers from config
+        std::string sbi_port_str = std::to_string(cfg.sbi_port);
+        upf::UpfNode node(cfg.n4_interface, sbi_port_str, peer_addresses);
+        node.start();
+        // Выводим адреса N4 и SBI с выделением
+        // N4 address: выделить 'lo' как magenta, иначе желтым
+        if (cfg.n4_interface == std::string("lo")) {
+            std::cout << "[UPF] N4 address: " << COLOR_MAGENTA << cfg.n4_interface << COLOR_RESET << std::endl;
+        } else {
+            std::cout << "[UPF] N4 address: " << COLOR_YELLOW << cfg.n4_interface << COLOR_RESET << std::endl;
+        }
+        std::cout << "[UPF] SBI address: " << COLOR_MAGENTA << sbi_port_str << COLOR_RESET << std::endl;
+        upf::UpfCli cli(cfg, &node);
         std::string line;
-        std::cout << "vUPF CLI (REPL) mode. Type a command or 'exit' to quit." << std::endl;
+        std::cout << "vUPF CLI (REPL) mode. Type a command or '" << COLOR_YELLOW << "exit" << COLOR_RESET << "' to quit." << std::endl;
+        std::cout << "Type '" << COLOR_YELLOW << "help" << COLOR_RESET << "' to see available commands and usage examples." << std::endl;
         while (true) {
             std::cout << "> ";
             if (!std::getline(std::cin, line)) break;
             if (line == "exit" || line == "quit") break;
             std::string result = cli.execute(line);
+            // Подсветка help, exit, successfully, 8080
+            size_t pos = 0;
+            // help
+            while ((pos = result.find("help", pos)) != std::string::npos) {
+                result.replace(pos, 4, std::string(COLOR_YELLOW) + "help" + COLOR_RESET);
+                pos += std::string(COLOR_YELLOW).size() + 4 + std::string(COLOR_RESET).size();
+            }
+            pos = 0;
+            // exit
+            while ((pos = result.find("exit", pos)) != std::string::npos) {
+                result.replace(pos, 4, std::string(COLOR_YELLOW) + "exit" + COLOR_RESET);
+                pos += std::string(COLOR_YELLOW).size() + 4 + std::string(COLOR_RESET).size();
+            }
+            pos = 0;
+            // successfully
+            while ((pos = result.find("successfully", pos)) != std::string::npos) {
+                result.replace(pos, 12, std::string(COLOR_GREEN) + "successfully" + COLOR_RESET);
+                pos += std::string(COLOR_GREEN).size() + 12 + std::string(COLOR_RESET).size();
+            }
+            pos = 0;
+            // 8080
+            while ((pos = result.find("8080", pos)) != std::string::npos) {
+                result.replace(pos, 4, std::string(COLOR_MAGENTA) + "8080" + COLOR_RESET);
+                pos += std::string(COLOR_MAGENTA).size() + 4 + std::string(COLOR_RESET).size();
+            }
             std::cout << result << std::endl;
         }
+        node.stop();
         LOG_INFO("CLI mode finished.");
         return 0;
     } else {

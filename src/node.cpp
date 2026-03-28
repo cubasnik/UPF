@@ -1,3 +1,4 @@
+
 #ifdef _WIN32
 #define UPF_COLOR_INFO "\033[34m"
 #define UPF_COLOR_ERROR "\033[31m"
@@ -21,6 +22,10 @@ constexpr const char* UPF_COLOR_RESET = "\033[0m";
 #include <atomic>
 
 namespace upf {
+UpfNode::UpfNode(const std::string& n4, const std::string& sbi, const std::vector<std::string>& peers)
+    : pImpl_(std::make_unique<Impl>(n4, sbi, peers)) {
+    // Этот конструктор используется для обычного режима (по строковым адресам)
+}
 
 struct UpfNode::Impl {
     // For legacy constructor

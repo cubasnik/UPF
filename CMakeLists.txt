@@ -21,6 +21,7 @@ add_library(upf_core
     src/adapters/network_adapters.cpp
     src/protocol/pfcp_wire.cpp
     src/config/runtime_config.cpp
+    config/runtime_config.cpp
     src/modules/observability.cpp
     src/modules/transport_serialization.cpp
     src/modules/n6_packet_buffer.cpp

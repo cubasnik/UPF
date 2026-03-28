@@ -84,19 +84,91 @@ std::string UpfCli::execute(const std::string& command_line) {
         constexpr const char* desc_color = "\033[0m"; // white/default
         std::ostringstream oss;
         oss << "Available commands:\n";
-        oss << "  " << cmd_color << "set <key> <value>" << desc_color << "      Set a configuration parameter\n";
-        oss << "  " << cmd_color << "commit" << desc_color << "                 Apply changes (make candidate config active)\n";
-        oss << "  " << cmd_color << "discard" << desc_color << "                Discard unsaved changes (reset candidate to running)\n";
-        oss << "  " << cmd_color << "show running" << desc_color << "           Show current (active) configuration\n";
-        oss << "  " << cmd_color << "show candidate" << desc_color << "         Show candidate configuration\n";
-        oss << "  " << cmd_color << "show running json" << desc_color << "      Show current configuration in JSON format\n";
-        oss << "  " << cmd_color << "show candidate json" << desc_color << "    Show candidate configuration in JSON format\n";
-        oss << "  " << cmd_color << "show mode" << desc_color << "              Show mode (mode=operational)\n";
-        oss << "  " << cmd_color << "exit, quit" << desc_color << "             Exit REPL\n";
-        oss << "  " << cmd_color << "help" << desc_color << "                   Show this help message";
+        oss << "  " << cmd_color << "set <key> <value>" << desc_color << "           Set a configuration parameter\n";
+        oss << "  " << cmd_color << "commit" << desc_color << "                      Apply changes (make candidate config active)\n";
+        oss << "  " << cmd_color << "discard" << desc_color << "                     Discard unsaved changes (reset candidate to running)\n";
+        oss << "  " << cmd_color << "show running" << desc_color << "                Show current (active) configuration\n";
+        oss << "  " << cmd_color << "show candidate" << desc_color << "              Show candidate configuration\n";
+        oss << "  " << cmd_color << "show running json" << desc_color << "           Show current configuration in JSON format\n";
+        oss << "  " << cmd_color << "show candidate json" << desc_color << "         Show candidate configuration in JSON format\n";
+        oss << "  " << cmd_color << "show mode" << desc_color << "                   Show mode (mode=operational)\n";
+        oss << "  " << cmd_color << "save [file]" << desc_color << "                     Save current configuration to file (JSON)\n";
+        oss << "  " << cmd_color << "exit, quit" << desc_color << "                    Exit REPL\n";
+        oss << "  " << cmd_color << "help" << desc_color << "                          Show this help message\n";
+        oss << "\nSession commands:\n";
+        oss << "  " << cmd_color << "session establish <imsi> <pdu>" << desc_color << "         Create PFCP association and session\n";
+        oss << "  " << cmd_color << "session modify <imsi> <pdu>" << desc_color << "            Send PFCP SessionModificationRequest\n";
+        oss << "  " << cmd_color << "session release <imsi> <pdu>" << desc_color << "           Send PFCP SessionReleaseRequest\n";
+        oss << "  " << cmd_color << "session uplink <bytes> <imsi> <pdu>" << desc_color << "     Simulate uplink traffic (UsageReport)\n";
+        oss << "  " << cmd_color << "session downlink-tool <bytes> <imsi> <pdu>" << desc_color << "  Simulate downlink traffic (UsageReport)\n";
+        oss << "  " << cmd_color << "session full-tool <bytes> <imsi> <pdu>" << desc_color << "    Simulate uplink and downlink for session\n";
+        oss << "\nExamples:\n";
+        oss << "  session establish 250200123450001 21\n";
+        oss << "  session modify 250200123450001 21\n";
+        oss << "  session uplink 1500 250200123450001 21\n";
+        oss << "  session downlink-tool 1200 250200123450001 21\n";
+        oss << "  session full-tool 1200 250200123450001 21\n";
+        oss << "  session release 250200123450001 21\n";
         return oss.str();
     }
 
+    if (command == "session") {
+        std::string subcmd;
+        stream >> subcmd;
+        if (subcmd == "establish") {
+            std::string imsi, pdu;
+            stream >> imsi >> pdu;
+            if (!live_node_) return std::string(color_err) + "ERR: no live node" + color_reset;
+            upf::SessionRequest req;
+            req.imsi = imsi;
+            req.pdu_session_id = static_cast<uint32_t>(std::stoul(pdu));
+            bool ok = live_node_->establish_session(req);
+            return ok ? std::string(color_ok) + "OK: session established" + color_reset : std::string(color_err) + "ERR: failed to establish session" + color_reset;
+        }
+        if (subcmd == "modify") {
+            std::string imsi, pdu;
+            stream >> imsi >> pdu;
+            if (!live_node_) return std::string(color_err) + "ERR: no live node" + color_reset;
+            upf::SessionRequest req;
+            req.imsi = imsi;
+            req.pdu_session_id = static_cast<uint32_t>(std::stoul(pdu));
+            bool ok = live_node_->modify_session(req);
+            return ok ? std::string(color_ok) + "OK: session modified" + color_reset : std::string(color_err) + "ERR: failed to modify session" + color_reset;
+        }
+        if (subcmd == "release") {
+            std::string imsi, pdu;
+            stream >> imsi >> pdu;
+            if (!live_node_) return std::string(color_err) + "ERR: no live node" + color_reset;
+            bool ok = live_node_->release_session(imsi, static_cast<uint32_t>(std::stoul(pdu)));
+            return ok ? std::string(color_ok) + "OK: session released" + color_reset : std::string(color_err) + "ERR: failed to release session" + color_reset;
+        }
+        if (subcmd == "uplink") {
+            std::string bytes_str, imsi, pdu;
+            stream >> bytes_str >> imsi >> pdu;
+            if (!live_node_) return std::string(color_err) + "ERR: no live node" + color_reset;
+            size_t bytes = static_cast<size_t>(std::stoull(bytes_str));
+            bool ok = live_node_->process_uplink(imsi, static_cast<uint32_t>(std::stoul(pdu)), bytes);
+            return ok ? std::string(color_ok) + "OK: uplink simulated" + color_reset : std::string(color_err) + "ERR: failed uplink" + color_reset;
+        }
+        if (subcmd == "downlink-tool") {
+            std::string bytes_str, imsi, pdu;
+            stream >> bytes_str >> imsi >> pdu;
+            if (!live_node_) return std::string(color_err) + "ERR: no live node" + color_reset;
+            size_t bytes = static_cast<size_t>(std::stoull(bytes_str));
+            bool ok = live_node_->process_downlink(imsi, static_cast<uint32_t>(std::stoul(pdu)), bytes);
+            return ok ? std::string(color_ok) + "OK: downlink simulated" + color_reset : std::string(color_err) + "ERR: failed downlink" + color_reset;
+        }
+        if (subcmd == "full-tool") {
+            std::string bytes_str, imsi, pdu;
+            stream >> bytes_str >> imsi >> pdu;
+            if (!live_node_) return std::string(color_err) + "ERR: no live node" + color_reset;
+            size_t bytes = static_cast<size_t>(std::stoull(bytes_str));
+            bool ok1 = live_node_->process_uplink(imsi, static_cast<uint32_t>(std::stoul(pdu)), bytes);
+            bool ok2 = live_node_->process_downlink(imsi, static_cast<uint32_t>(std::stoul(pdu)), bytes);
+            return (ok1 && ok2) ? std::string(color_ok) + "OK: full-tool simulated" + color_reset : std::string(color_err) + "ERR: failed full-tool" + color_reset;
+        }
+        return std::string(color_err) + "ERR: unknown session subcommand" + color_reset;
+    }
     if (command == "set") {
         std::string key;
         std::string value;
@@ -119,6 +191,17 @@ std::string UpfCli::execute(const std::string& command_line) {
     if (command == "discard") {
         candidate_ = running_;
         return std::string(color_ok) + "OK" + color_reset;
+    }
+
+    if (command == "save" || command == "write") {
+        std::string file_path;
+        stream >> file_path;
+        std::string result;
+        if (save_runtime_config(running_, file_path, &result)) {
+            return std::string(color_ok) + "Config saved" + color_reset;
+        } else {
+            return std::string(color_err) + "ERR: " + result + color_reset;
+        }
     }
 
     if (command == "show") {

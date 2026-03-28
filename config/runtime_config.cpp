@@ -1,11 +1,43 @@
+
+#include <string>
+#include <fstream>
+
+
 #include "upf/upf.hpp"
+#include "upf/config/runtime_config.hpp"
 #include <fstream>
 #include <iostream>
 #include <filesystem>
 #include <sstream>
 #include <vector>
+#include <string>
 
 namespace upf {
+
+// Сохраняет RuntimeConfig в JSON-файл
+bool save_runtime_config(const RuntimeConfig& config, const std::string& file_path, std::string* error_msg) {
+    std::string out_path = file_path.empty() ? "runtime_config.json" : file_path;
+    std::ofstream out(out_path);
+    if (!out.is_open()) {
+        if (error_msg) *error_msg = "Cannot open file for writing: " + out_path;
+        return false;
+    }
+    // Используем простое форматирование JSON
+    out << "{\n";
+    out << "  \"n3_interface\": \"" << config.n3_interface << "\",\n";
+    out << "  \"n4_interface\": \"" << config.n4_interface << "\",\n";
+    out << "  \"n6_interface\": \"" << config.n6_interface << "\",\n";
+    out << "  \"n4_port\": " << config.n4_port << ",\n";
+    out << "  \"sbi_port\": " << config.sbi_port << ",\n";
+    out << "  \"verbose\": " << (config.verbose ? "true" : "false") << "\n";
+    out << "}\n";
+    if (!out.good()) {
+        if (error_msg) *error_msg = "Write error: " + out_path;
+        return false;
+    }
+    if (error_msg) *error_msg = "";
+    return true;
+}
 
 RuntimeConfig default_runtime_config() {
     RuntimeConfig config;
@@ -196,15 +228,6 @@ std::optional<std::filesystem::path> resolve_config_path(
 
 // Реализация UpfRuntime
 
-UpfRuntime::UpfRuntime(const upf::RuntimeConfig& config) 
-    : config_(config), initialized_(false) {
-}
-
-UpfRuntime::~UpfRuntime() {
-    if (initialized_) {
-        shutdown();
-    }
-}
 
 bool UpfRuntime::initialize() {
     if (initialized_) {
@@ -274,7 +297,7 @@ int UpfRuntime::run_session() {
 
 // Реализация run_session_once
 
-int run_session_once(UpfRuntime& runtime, const RuntimeInvocationContext& ctx) {
+int run_session_once(UpfRuntime& runtime, const RuntimeInvocationContext& ctx, bool no_wait) {
     if (ctx.verbose) {
         std::cout << "[MAIN] Running session with context:" << std::endl;
         std::cout << "[MAIN]   Program: " << ctx.program_name << std::endl;
@@ -283,12 +306,9 @@ int run_session_once(UpfRuntime& runtime, const RuntimeInvocationContext& ctx) {
         }
         std::cout << "[MAIN]   Verbose: " << (ctx.verbose ? "enabled" : "disabled") << std::endl;
     }
-    
-    int result = runtime.run_session();
-    
+    int result = runtime.run_session(no_wait);
     if (ctx.verbose) {
         std::cout << "[MAIN] Session completed with code: " << result << std::endl;
     }
-    
     return result;
 }
